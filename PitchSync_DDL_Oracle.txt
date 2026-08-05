@@ -1,0 +1,771 @@
+/*
+===============================================================================
+ PitchSync - Oracle Database Skeleton (DDL Only)
+ Target      : Oracle Database 12c, backward-compatible with Oracle 11g
+ Source      : Group A9 project proposal and supplied ER diagram
+ Data        : No INSERT/UPDATE/DELETE statements are included.
+
+ IMPORTANT:
+ The first PL/SQL block intentionally drops EVERY TABLE owned by the currently
+ connected Oracle user/schema. Run it only inside the dedicated PitchSync schema.
+ It uses CASCADE CONSTRAINTS so foreign-key dependencies are removed safely.
+===============================================================================
+*/
+
+SET SERVEROUTPUT ON;
+
+/* ---------------------------------------------------------------------------
+   0. CLEAN START - DROP ALL EXISTING TABLES IN THE CURRENT SCHEMA
+   --------------------------------------------------------------------------- */
+BEGIN
+    FOR t IN (SELECT table_name FROM user_tables) LOOP
+        BEGIN
+            EXECUTE IMMEDIATE
+                'DROP TABLE "' || t.table_name ||
+                '" CASCADE CONSTRAINTS PURGE';
+            DBMS_OUTPUT.PUT_LINE('Dropped table: ' || t.table_name);
+        EXCEPTION
+            WHEN OTHERS THEN
+                DBMS_OUTPUT.PUT_LINE(
+                    'Could not drop ' || t.table_name || ': ' || SQLERRM
+                );
+        END;
+    END LOOP;
+END;
+/
+
+/* ---------------------------------------------------------------------------
+   DESIGN NOTES
+   ---------------------------------------------------------------------------
+   1. Composite ER attributes are flattened:
+        name    -> first_name, last_name
+        address -> present_address, permanent_address
+   2. Multivalued attributes use separate tables:
+        PERSON_PHONE, PLAYER_ACHIEVEMENT, TOURNAMENT_SPONSOR
+   3. Derived attributes such as age, duration, strike rate and economy rate
+      are exposed through views instead of being redundantly stored.
+   4. Bowling workload is stored as BALLS_BOWLED, not decimal overs. Cricket
+      notation such as 10.4 overs means 10 overs and 4 balls, not 10.4 decimal
+      overs. Views render the conventional overs display and calculate economy.
+   5. PERSON may exist without a PLAYER or ADMINISTRATOR subtype so that team
+      personnel, franchise personnel, support staff and other persons of
+      interest described in the proposal can still be represented.
+   6. Application roles are modeled as data tables. Oracle database users and
+      GRANT statements should be managed separately by the DBA.
+--------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   1. PERSON, PLAYER AND ADMINISTRATOR
+   --------------------------------------------------------------------------- */
+CREATE TABLE person (
+    person_id          NUMBER(10)       NOT NULL,
+    first_name         VARCHAR2(60)     NOT NULL,
+    last_name          VARCHAR2(60),
+    date_of_birth      DATE,
+    present_address    VARCHAR2(300),
+    permanent_address  VARCHAR2(300),
+    CONSTRAINT pk_person PRIMARY KEY (person_id)
+);
+
+CREATE TABLE person_phone (
+    person_id     NUMBER(10)    NOT NULL,
+    phone_number  VARCHAR2(25)  NOT NULL,
+    phone_type    VARCHAR2(20),
+    CONSTRAINT pk_person_phone PRIMARY KEY (person_id, phone_number),
+    CONSTRAINT fk_phone_person FOREIGN KEY (person_id)
+        REFERENCES person(person_id) ON DELETE CASCADE,
+    CONSTRAINT ck_phone_type CHECK (
+        phone_type IS NULL OR phone_type IN
+        ('MOBILE', 'HOME', 'WORK', 'EMERGENCY', 'OTHER')
+    )
+);
+
+CREATE TABLE player (
+    player_id          NUMBER(10)     NOT NULL,
+    player_role        VARCHAR2(40)   NOT NULL,
+    gender             VARCHAR2(10)   NOT NULL,
+    education          VARCHAR2(300),
+    family_background  VARCHAR2(500),
+    CONSTRAINT pk_player PRIMARY KEY (player_id),
+    CONSTRAINT fk_player_person FOREIGN KEY (player_id)
+        REFERENCES person(person_id) ON DELETE CASCADE,
+    CONSTRAINT ck_player_gender CHECK (gender IN ('MALE', 'FEMALE')),
+    CONSTRAINT ck_player_role CHECK (player_role IN
+        ('BATTER', 'BOWLER', 'ALL_ROUNDER', 'WICKET_KEEPER',
+         'WICKET_KEEPER_BATTER', 'OTHER'))
+);
+
+CREATE TABLE player_achievement (
+    player_id           NUMBER(10)     NOT NULL,
+    achievement_no      NUMBER(5)      NOT NULL,
+    achievement_title   VARCHAR2(200)  NOT NULL,
+    achievement_date    DATE,
+    achievement_detail  VARCHAR2(500),
+    CONSTRAINT pk_player_achievement
+        PRIMARY KEY (player_id, achievement_no),
+    CONSTRAINT fk_ach_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE
+);
+
+CREATE TABLE administrator (
+    admin_id       NUMBER(10)     NOT NULL,
+    designation    VARCHAR2(100)  NOT NULL,
+    department     VARCHAR2(100),
+    email          VARCHAR2(150)  NOT NULL,
+    joining_date   DATE,
+    CONSTRAINT pk_administrator PRIMARY KEY (admin_id),
+    CONSTRAINT fk_admin_person FOREIGN KEY (admin_id)
+        REFERENCES person(person_id) ON DELETE CASCADE,
+    CONSTRAINT uq_admin_email UNIQUE (email)
+);
+
+/* ---------------------------------------------------------------------------
+   2. APPLICATION USER AND ROLE MANAGEMENT
+   Approved role records can later be inserted for:
+   SUPER_ADMIN, BOARD_ADMIN, TEAM_PERFORMANCE_MANAGER, MATCH_OFFICIAL_SCORER,
+   INTEGRITY_COMPLIANCE_OFFICER and PLAYER.
+   --------------------------------------------------------------------------- */
+CREATE TABLE app_role (
+    role_id           NUMBER(5)      NOT NULL,
+    role_name         VARCHAR2(60)   NOT NULL,
+    role_description  VARCHAR2(400),
+    CONSTRAINT pk_app_role PRIMARY KEY (role_id),
+    CONSTRAINT uq_app_role_name UNIQUE (role_name)
+);
+
+CREATE TABLE app_user (
+    user_id             NUMBER(10)      NOT NULL,
+    person_id           NUMBER(10)      NOT NULL,
+    username            VARCHAR2(80)    NOT NULL,
+    password_hash       VARCHAR2(255)   NOT NULL,
+    account_status      VARCHAR2(20)    DEFAULT 'ACTIVE' NOT NULL,
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    created_by_user_id  NUMBER(10),
+    CONSTRAINT pk_app_user PRIMARY KEY (user_id),
+    CONSTRAINT uq_app_user_person UNIQUE (person_id),
+    CONSTRAINT uq_app_username UNIQUE (username),
+    CONSTRAINT fk_user_person FOREIGN KEY (person_id)
+        REFERENCES person(person_id),
+    CONSTRAINT fk_user_creator FOREIGN KEY (created_by_user_id)
+        REFERENCES app_user(user_id),
+    CONSTRAINT ck_user_status CHECK (
+        account_status IN ('ACTIVE', 'INACTIVE', 'LOCKED', 'SUSPENDED')
+    )
+);
+
+CREATE TABLE user_role (
+    user_id              NUMBER(10)  NOT NULL,
+    role_id              NUMBER(5)   NOT NULL,
+    assigned_at          TIMESTAMP   DEFAULT SYSTIMESTAMP NOT NULL,
+    assigned_by_user_id  NUMBER(10),
+    CONSTRAINT pk_user_role PRIMARY KEY (user_id, role_id),
+    CONSTRAINT fk_ur_user FOREIGN KEY (user_id)
+        REFERENCES app_user(user_id) ON DELETE CASCADE,
+    CONSTRAINT fk_ur_role FOREIGN KEY (role_id)
+        REFERENCES app_role(role_id) ON DELETE CASCADE,
+    CONSTRAINT fk_ur_assigner FOREIGN KEY (assigned_by_user_id)
+        REFERENCES app_user(user_id)
+);
+
+/* ---------------------------------------------------------------------------
+   3. PLAYER FITNESS AND AVAILABILITY
+   Operational information only; this is not a full clinical medical record.
+   --------------------------------------------------------------------------- */
+CREATE TABLE player_fitness_availability (
+    fitness_record_id      NUMBER(10)     NOT NULL,
+    player_id              NUMBER(10)     NOT NULL,
+    injury_status          VARCHAR2(30)   DEFAULT 'FIT' NOT NULL,
+    injury_summary         VARCHAR2(500),
+    recovery_progress_pct  NUMBER(5,2),
+    expected_return_date   DATE,
+    fitness_clearance      VARCHAR2(20)   DEFAULT 'PENDING' NOT NULL,
+    training_availability  VARCHAR2(20)   DEFAULT 'AVAILABLE' NOT NULL,
+    match_availability     VARCHAR2(20)   DEFAULT 'AVAILABLE' NOT NULL,
+    recorded_at            TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at             TIMESTAMP,
+    recorded_by_admin_id   NUMBER(10),
+    CONSTRAINT pk_player_fitness PRIMARY KEY (fitness_record_id),
+    CONSTRAINT fk_fit_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_fit_admin FOREIGN KEY (recorded_by_admin_id)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT ck_recovery_pct CHECK (
+        recovery_progress_pct IS NULL OR
+        recovery_progress_pct BETWEEN 0 AND 100
+    ),
+    CONSTRAINT ck_injury_status CHECK (injury_status IN
+        ('FIT', 'INJURED', 'RECOVERING', 'UNDER_ASSESSMENT')),
+    CONSTRAINT ck_fit_clearance CHECK (fitness_clearance IN
+        ('CLEARED', 'NOT_CLEARED', 'PENDING')),
+    CONSTRAINT ck_training_avail CHECK (training_availability IN
+        ('AVAILABLE', 'LIMITED', 'UNAVAILABLE')),
+    CONSTRAINT ck_match_avail CHECK (match_availability IN
+        ('AVAILABLE', 'LIMITED', 'UNAVAILABLE'))
+);
+
+/* ---------------------------------------------------------------------------
+   4. TEAM, TOURNAMENT AND MATCH MANAGEMENT
+   --------------------------------------------------------------------------- */
+CREATE TABLE team (
+    team_id           NUMBER(10)     NOT NULL,
+    team_name         VARCHAR2(150)  NOT NULL,
+    team_category     VARCHAR2(40)   NOT NULL,
+    gender_category   VARCHAR2(10)   NOT NULL,
+    franchise_owner   VARCHAR2(200),
+    CONSTRAINT pk_team PRIMARY KEY (team_id),
+    CONSTRAINT uq_team_name UNIQUE (team_name),
+    CONSTRAINT ck_team_gender CHECK (
+        gender_category IN ('MEN', 'WOMEN')
+    ),
+    CONSTRAINT ck_team_category CHECK (team_category IN
+        ('NATIONAL', 'DOMESTIC', 'FRANCHISE', 'LEAGUE',
+         'YOUTH', 'ACADEMY', 'OTHER'))
+);
+
+CREATE TABLE tournament (
+    tournament_id      NUMBER(10)     NOT NULL,
+    tournament_name    VARCHAR2(180)  NOT NULL,
+    tier_level         VARCHAR2(30)   NOT NULL,
+    gender_category    VARCHAR2(10)   NOT NULL,
+    start_date         DATE,
+    end_date           DATE,
+    CONSTRAINT pk_tournament PRIMARY KEY (tournament_id),
+    CONSTRAINT ck_tourn_tier CHECK (tier_level IN
+        ('INTERNATIONAL', 'DOMESTIC', 'FRANCHISE_LEAGUE',
+         'YOUTH_ACADEMY')),
+    CONSTRAINT ck_tourn_gender CHECK (
+        gender_category IN ('MEN', 'WOMEN')
+    ),
+    CONSTRAINT ck_tourn_dates CHECK (
+        end_date IS NULL OR start_date IS NULL OR end_date >= start_date
+    )
+);
+
+CREATE TABLE tournament_sponsor (
+    tournament_id  NUMBER(10)     NOT NULL,
+    sponsor_name   VARCHAR2(180)  NOT NULL,
+    CONSTRAINT pk_tournament_sponsor
+        PRIMARY KEY (tournament_id, sponsor_name),
+    CONSTRAINT fk_ts_tournament FOREIGN KEY (tournament_id)
+        REFERENCES tournament(tournament_id) ON DELETE CASCADE
+);
+
+CREATE TABLE cricket_match (
+    match_id          NUMBER(10)      NOT NULL,
+    tournament_id     NUMBER(10)      NOT NULL,
+    match_date        DATE            NOT NULL,
+    venue             VARCHAR2(180)   NOT NULL,
+    match_format      VARCHAR2(20)    NOT NULL,
+    competition_tier  VARCHAR2(30)    NOT NULL,
+    match_status      VARCHAR2(20)    DEFAULT 'SCHEDULED' NOT NULL,
+    result_summary    VARCHAR2(500),
+    CONSTRAINT pk_cricket_match PRIMARY KEY (match_id),
+    CONSTRAINT fk_match_tournament FOREIGN KEY (tournament_id)
+        REFERENCES tournament(tournament_id),
+    CONSTRAINT ck_match_format CHECK (match_format IN
+        ('TEST', 'ODI', 'T20', 'FIRST_CLASS', 'LIST_A', 'DOMESTIC_T20')),
+    CONSTRAINT ck_match_tier CHECK (competition_tier IN
+        ('INTERNATIONAL', 'DOMESTIC', 'FRANCHISE_LEAGUE',
+         'YOUTH_ACADEMY')),
+    CONSTRAINT ck_match_status CHECK (match_status IN
+        ('SCHEDULED', 'ONGOING', 'COMPLETED', 'ABANDONED', 'CANCELLED'))
+);
+
+CREATE TABLE match_team (
+    match_id    NUMBER(10)    NOT NULL,
+    team_id     NUMBER(10)    NOT NULL,
+    team_role   VARCHAR2(10)  NOT NULL,
+    is_winner   CHAR(1)       DEFAULT 'N' NOT NULL,
+    CONSTRAINT pk_match_team PRIMARY KEY (match_id, team_id),
+    CONSTRAINT uq_match_team_role UNIQUE (match_id, team_role),
+    CONSTRAINT fk_mt_match FOREIGN KEY (match_id)
+        REFERENCES cricket_match(match_id) ON DELETE CASCADE,
+    CONSTRAINT fk_mt_team FOREIGN KEY (team_id)
+        REFERENCES team(team_id),
+    CONSTRAINT ck_mt_role CHECK (team_role IN ('TEAM_1', 'TEAM_2')),
+    CONSTRAINT ck_mt_winner CHECK (is_winner IN ('Y', 'N'))
+);
+
+/* Represents squad membership and the history of teams represented. */
+CREATE TABLE player_team_history (
+    player_id     NUMBER(10)    NOT NULL,
+    team_id       NUMBER(10)    NOT NULL,
+    start_date    DATE          NOT NULL,
+    end_date      DATE,
+    squad_status  VARCHAR2(20)  DEFAULT 'ACTIVE' NOT NULL,
+    CONSTRAINT pk_player_team_hist
+        PRIMARY KEY (player_id, team_id, start_date),
+    CONSTRAINT fk_pth_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_pth_team FOREIGN KEY (team_id)
+        REFERENCES team(team_id),
+    CONSTRAINT ck_pth_dates CHECK (
+        end_date IS NULL OR end_date >= start_date
+    ),
+    CONSTRAINT ck_pth_status CHECK (squad_status IN
+        ('ACTIVE', 'FORMER', 'LOAN', 'TEMPORARY'))
+);
+
+/* Recursive PLAYER-to-PLAYER mentoring relationship. */
+CREATE TABLE player_mentor (
+    mentor_player_id  NUMBER(10)  NOT NULL,
+    mentee_player_id  NUMBER(10)  NOT NULL,
+    mentor_since      DATE        NOT NULL,
+    mentor_until      DATE,
+    CONSTRAINT pk_player_mentor
+        PRIMARY KEY (mentor_player_id, mentee_player_id, mentor_since),
+    CONSTRAINT fk_pm_mentor FOREIGN KEY (mentor_player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_pm_mentee FOREIGN KEY (mentee_player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT ck_pm_distinct CHECK (mentor_player_id <> mentee_player_id),
+    CONSTRAINT ck_pm_dates CHECK (
+        mentor_until IS NULL OR mentor_until >= mentor_since
+    )
+);
+
+/* Ternary OBSERVES relationship: ADMINISTRATOR observes PLAYER in a MATCH. */
+CREATE TABLE player_observation (
+    admin_id          NUMBER(10)     NOT NULL,
+    player_id         NUMBER(10)     NOT NULL,
+    match_id          NUMBER(10)     NOT NULL,
+    observation_date  DATE           DEFAULT SYSDATE NOT NULL,
+    remarks           VARCHAR2(1000),
+    CONSTRAINT pk_player_observation
+        PRIMARY KEY (admin_id, player_id, match_id, observation_date),
+    CONSTRAINT fk_po_admin FOREIGN KEY (admin_id)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT fk_po_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_po_match FOREIGN KEY (match_id)
+        REFERENCES cricket_match(match_id) ON DELETE CASCADE
+);
+
+/* ---------------------------------------------------------------------------
+   5. CAREER RECORDS AND CAREER SUMMARY TABLES
+   --------------------------------------------------------------------------- */
+CREATE TABLE career_record (
+    record_id        NUMBER(10)    NOT NULL,
+    player_id        NUMBER(10)    NOT NULL,
+    team_id          NUMBER(10),
+    tier_level       VARCHAR2(30)  NOT NULL,
+    location_type    VARCHAR2(30),
+    match_format     VARCHAR2(20)  NOT NULL,
+    matches_played   NUMBER(6)     DEFAULT 0 NOT NULL,
+    start_date       DATE,
+    end_date         DATE,
+    CONSTRAINT pk_career_record PRIMARY KEY (record_id),
+    CONSTRAINT fk_cr_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cr_team FOREIGN KEY (team_id)
+        REFERENCES team(team_id),
+    CONSTRAINT uq_career_scope UNIQUE
+        (player_id, team_id, tier_level, match_format, start_date),
+    CONSTRAINT ck_cr_matches CHECK (matches_played >= 0),
+    CONSTRAINT ck_cr_dates CHECK (
+        end_date IS NULL OR start_date IS NULL OR end_date >= start_date
+    ),
+    CONSTRAINT ck_cr_format CHECK (match_format IN
+        ('TEST', 'ODI', 'T20', 'FIRST_CLASS', 'LIST_A', 'DOMESTIC_T20')),
+    CONSTRAINT ck_cr_tier CHECK (tier_level IN
+        ('INTERNATIONAL', 'DOMESTIC', 'FRANCHISE_LEAGUE',
+         'YOUTH_ACADEMY'))
+);
+
+CREATE TABLE batting_summary (
+    bat_summary_id    NUMBER(10)  NOT NULL,
+    record_id         NUMBER(10)  NOT NULL,
+    total_runs        NUMBER(10)  DEFAULT 0 NOT NULL,
+    total_balls_faced NUMBER(10)  DEFAULT 0 NOT NULL,
+    innings_played    NUMBER(7)   DEFAULT 0 NOT NULL,
+    times_out         NUMBER(7)   DEFAULT 0 NOT NULL,
+    highest_score     NUMBER(5)   DEFAULT 0 NOT NULL,
+    CONSTRAINT pk_batting_summary PRIMARY KEY (bat_summary_id),
+    CONSTRAINT uq_batsum_record UNIQUE (record_id),
+    CONSTRAINT fk_batsum_record FOREIGN KEY (record_id)
+        REFERENCES career_record(record_id) ON DELETE CASCADE,
+    CONSTRAINT ck_batsum_nonneg CHECK (
+        total_runs >= 0 AND total_balls_faced >= 0 AND
+        innings_played >= 0 AND times_out >= 0 AND highest_score >= 0
+    ),
+    CONSTRAINT ck_batsum_outs CHECK (times_out <= innings_played)
+);
+
+CREATE TABLE bowling_summary (
+    bowl_summary_id     NUMBER(10)  NOT NULL,
+    record_id           NUMBER(10)  NOT NULL,
+    total_wickets       NUMBER(8)   DEFAULT 0 NOT NULL,
+    total_runs_conceded NUMBER(10)  DEFAULT 0 NOT NULL,
+    total_balls_bowled  NUMBER(10)  DEFAULT 0 NOT NULL,
+    best_wickets        NUMBER(3),
+    best_runs_conceded  NUMBER(4),
+    CONSTRAINT pk_bowling_summary PRIMARY KEY (bowl_summary_id),
+    CONSTRAINT uq_bowlsum_record UNIQUE (record_id),
+    CONSTRAINT fk_bowlsum_record FOREIGN KEY (record_id)
+        REFERENCES career_record(record_id) ON DELETE CASCADE,
+    CONSTRAINT ck_bowlsum_nonneg CHECK (
+        total_wickets >= 0 AND total_runs_conceded >= 0 AND
+        total_balls_bowled >= 0 AND
+        (best_wickets IS NULL OR best_wickets >= 0) AND
+        (best_runs_conceded IS NULL OR best_runs_conceded >= 0)
+    )
+);
+
+CREATE TABLE fielding_summary (
+    field_summary_id             NUMBER(10)  NOT NULL,
+    record_id                    NUMBER(10)  NOT NULL,
+    total_catches                NUMBER(8)   DEFAULT 0 NOT NULL,
+    total_stumpings              NUMBER(8)   DEFAULT 0 NOT NULL,
+    total_direct_runouts         NUMBER(8)   DEFAULT 0 NOT NULL,
+    most_dismissals_in_match     NUMBER(4)   DEFAULT 0 NOT NULL,
+    CONSTRAINT pk_fielding_summary PRIMARY KEY (field_summary_id),
+    CONSTRAINT uq_fieldsum_record UNIQUE (record_id),
+    CONSTRAINT fk_fieldsum_record FOREIGN KEY (record_id)
+        REFERENCES career_record(record_id) ON DELETE CASCADE,
+    CONSTRAINT ck_fieldsum_nonneg CHECK (
+        total_catches >= 0 AND total_stumpings >= 0 AND
+        total_direct_runouts >= 0 AND most_dismissals_in_match >= 0
+    )
+);
+
+/* ---------------------------------------------------------------------------
+   6. MATCH-LEVEL PLAYER PERFORMANCE
+   One row per player per match for each applicable performance category.
+   --------------------------------------------------------------------------- */
+CREATE TABLE batting_performance (
+    bat_stat_id       NUMBER(10)     NOT NULL,
+    match_id          NUMBER(10)     NOT NULL,
+    player_id         NUMBER(10)     NOT NULL,
+    bat_summary_id    NUMBER(10),
+    runs_scored       NUMBER(5)      DEFAULT 0 NOT NULL,
+    balls_faced       NUMBER(5)      DEFAULT 0 NOT NULL,
+    dismissal_type    VARCHAR2(60),
+    recorded_by_admin NUMBER(10),
+    verified_flag     CHAR(1)        DEFAULT 'N' NOT NULL,
+    CONSTRAINT pk_batting_perf PRIMARY KEY (bat_stat_id),
+    CONSTRAINT uq_batperf_match_player UNIQUE (match_id, player_id),
+    CONSTRAINT fk_bp_match FOREIGN KEY (match_id)
+        REFERENCES cricket_match(match_id) ON DELETE CASCADE,
+    CONSTRAINT fk_bp_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_bp_summary FOREIGN KEY (bat_summary_id)
+        REFERENCES batting_summary(bat_summary_id),
+    CONSTRAINT fk_bp_admin FOREIGN KEY (recorded_by_admin)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT ck_bp_nonneg CHECK (runs_scored >= 0 AND balls_faced >= 0),
+    CONSTRAINT ck_bp_verified CHECK (verified_flag IN ('Y', 'N'))
+);
+
+CREATE TABLE bowling_performance (
+    bowl_stat_id       NUMBER(10)  NOT NULL,
+    match_id           NUMBER(10)  NOT NULL,
+    player_id          NUMBER(10)  NOT NULL,
+    bowl_summary_id    NUMBER(10),
+    wickets_taken      NUMBER(3)   DEFAULT 0 NOT NULL,
+    balls_bowled       NUMBER(5)   DEFAULT 0 NOT NULL,
+    runs_conceded      NUMBER(5)   DEFAULT 0 NOT NULL,
+    recorded_by_admin  NUMBER(10),
+    verified_flag      CHAR(1)     DEFAULT 'N' NOT NULL,
+    CONSTRAINT pk_bowling_perf PRIMARY KEY (bowl_stat_id),
+    CONSTRAINT uq_bowlperf_match_player UNIQUE (match_id, player_id),
+    CONSTRAINT fk_bop_match FOREIGN KEY (match_id)
+        REFERENCES cricket_match(match_id) ON DELETE CASCADE,
+    CONSTRAINT fk_bop_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_bop_summary FOREIGN KEY (bowl_summary_id)
+        REFERENCES bowling_summary(bowl_summary_id),
+    CONSTRAINT fk_bop_admin FOREIGN KEY (recorded_by_admin)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT ck_bop_nonneg CHECK (
+        wickets_taken >= 0 AND balls_bowled >= 0 AND runs_conceded >= 0
+    ),
+    CONSTRAINT ck_bop_verified CHECK (verified_flag IN ('Y', 'N'))
+);
+
+CREATE TABLE fielding_performance (
+    field_stat_id      NUMBER(10)  NOT NULL,
+    match_id           NUMBER(10)  NOT NULL,
+    player_id          NUMBER(10)  NOT NULL,
+    field_summary_id   NUMBER(10),
+    catches            NUMBER(3)   DEFAULT 0 NOT NULL,
+    stumpings          NUMBER(3)   DEFAULT 0 NOT NULL,
+    direct_runouts     NUMBER(3)   DEFAULT 0 NOT NULL,
+    byes_conceded      NUMBER(4)   DEFAULT 0 NOT NULL,
+    recorded_by_admin  NUMBER(10),
+    verified_flag      CHAR(1)     DEFAULT 'N' NOT NULL,
+    CONSTRAINT pk_fielding_perf PRIMARY KEY (field_stat_id),
+    CONSTRAINT uq_fieldperf_match_player UNIQUE (match_id, player_id),
+    CONSTRAINT fk_fp_match FOREIGN KEY (match_id)
+        REFERENCES cricket_match(match_id) ON DELETE CASCADE,
+    CONSTRAINT fk_fp_player FOREIGN KEY (player_id)
+        REFERENCES player(player_id) ON DELETE CASCADE,
+    CONSTRAINT fk_fp_summary FOREIGN KEY (field_summary_id)
+        REFERENCES fielding_summary(field_summary_id),
+    CONSTRAINT fk_fp_admin FOREIGN KEY (recorded_by_admin)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT ck_fp_nonneg CHECK (
+        catches >= 0 AND stumpings >= 0 AND
+        direct_runouts >= 0 AND byes_conceded >= 0
+    ),
+    CONSTRAINT ck_fp_verified CHECK (verified_flag IN ('Y', 'N'))
+);
+
+/* ---------------------------------------------------------------------------
+   7. COMPLAINT, SUSPICIOUS ACTIVITY, CASE AND RULEBOOK MANAGEMENT
+   --------------------------------------------------------------------------- */
+CREATE TABLE complaint (
+    complaint_id          NUMBER(10)      NOT NULL,
+    description           VARCHAR2(2000)  NOT NULL,
+    date_received         DATE            DEFAULT SYSDATE NOT NULL,
+    source_type           VARCHAR2(40)    NOT NULL,
+    suspected_misconduct  VARCHAR2(500),
+    recorded_by_admin_id  NUMBER(10)      NOT NULL,
+    CONSTRAINT pk_complaint PRIMARY KEY (complaint_id),
+    CONSTRAINT fk_comp_admin FOREIGN KEY (recorded_by_admin_id)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT ck_comp_source CHECK (source_type IN
+        ('EMAIL', 'PHONE', 'WRITTEN', 'IN_PERSON',
+         'HOTLINE', 'INTERNAL_REPORT', 'OTHER'))
+);
+
+CREATE TABLE suspicious_activity (
+    activity_id           NUMBER(10)      NOT NULL,
+    activity_type         VARCHAR2(100)   NOT NULL,
+    description           VARCHAR2(2000)  NOT NULL,
+    observed_date         DATE            NOT NULL,
+    activity_status       VARCHAR2(25)    DEFAULT 'REPORTED' NOT NULL,
+    recorded_by_admin_id  NUMBER(10)      NOT NULL,
+    CONSTRAINT pk_suspicious_activity PRIMARY KEY (activity_id),
+    CONSTRAINT fk_sa_admin FOREIGN KEY (recorded_by_admin_id)
+        REFERENCES administrator(admin_id),
+    CONSTRAINT ck_sa_status CHECK (activity_status IN
+        ('REPORTED', 'UNDER_REVIEW', 'DISMISSED', 'ESCALATED'))
+);
+
+CREATE TABLE disciplinary_case (
+    case_id             NUMBER(10)      NOT NULL,
+    investigation_type  VARCHAR2(60)    NOT NULL,
+    date_opened         DATE            DEFAULT SYSDATE NOT NULL,
+    case_status         VARCHAR2(30)    DEFAULT 'OPEN' NOT NULL,
+    referral_status     VARCHAR2(30)    DEFAULT 'INTERNAL' NOT NULL,
+    external_authority  VARCHAR2(200),
+    referral_date       DATE,
+    closed_date         DATE,
+    case_summary        VARCHAR2(2000),
+    CONSTRAINT pk_disciplinary_case PRIMARY KEY (case_id),
+    CONSTRAINT ck_case_status CHECK (case_status IN
+        ('OPEN', 'UNDER_INVESTIGATION', 'ON_HOLD',
+         'REFERRED', 'CLOSED')),
+    CONSTRAINT ck_case_referral CHECK (referral_status IN
+        ('INTERNAL', 'REFERRED_EXTERNAL', 'RETURNED_INTERNAL')),
+    CONSTRAINT ck_case_dates CHECK (
+        closed_date IS NULL OR closed_date >= date_opened
+    ),
+    CONSTRAINT ck_referral_data CHECK (
+        (referral_status = 'REFERRED_EXTERNAL' AND
+         external_authority IS NOT NULL AND referral_date IS NOT NULL)
+        OR referral_status <> 'REFERRED_EXTERNAL'
+    )
+);
+
+/* A complaint may result in multiple cases; a case may combine complaints. */
+CREATE TABLE case_complaint (
+    case_id       NUMBER(10)  NOT NULL,
+    complaint_id  NUMBER(10)  NOT NULL,
+    CONSTRAINT pk_case_complaint PRIMARY KEY (case_id, complaint_id),
+    CONSTRAINT fk_cc_case FOREIGN KEY (case_id)
+        REFERENCES disciplinary_case(case_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cc_complaint FOREIGN KEY (complaint_id)
+        REFERENCES complaint(complaint_id)
+);
+
+/* A suspicious activity may also be a source for one or more cases. */
+CREATE TABLE case_activity (
+    case_id      NUMBER(10)  NOT NULL,
+    activity_id  NUMBER(10)  NOT NULL,
+    CONSTRAINT pk_case_activity PRIMARY KEY (case_id, activity_id),
+    CONSTRAINT fk_ca_case FOREIGN KEY (case_id)
+        REFERENCES disciplinary_case(case_id) ON DELETE CASCADE,
+    CONSTRAINT fk_ca_activity FOREIGN KEY (activity_id)
+        REFERENCES suspicious_activity(activity_id)
+);
+
+CREATE TABLE rulebook (
+    rule_id      NUMBER(10)      NOT NULL,
+    category     VARCHAR2(100)   NOT NULL,
+    clause_no    VARCHAR2(40)    NOT NULL,
+    clause_text  VARCHAR2(2000),
+    CONSTRAINT pk_rulebook PRIMARY KEY (rule_id),
+    CONSTRAINT uq_rulebook_clause UNIQUE (category, clause_no)
+);
+
+CREATE TABLE case_rule_violation (
+    case_id         NUMBER(10)     NOT NULL,
+    rule_id         NUMBER(10)     NOT NULL,
+    allegation_note VARCHAR2(1000),
+    violation_status VARCHAR2(25)  DEFAULT 'ALLEGED' NOT NULL,
+    CONSTRAINT pk_case_rule_violation PRIMARY KEY (case_id, rule_id),
+    CONSTRAINT fk_crv_case FOREIGN KEY (case_id)
+        REFERENCES disciplinary_case(case_id) ON DELETE CASCADE,
+    CONSTRAINT fk_crv_rule FOREIGN KEY (rule_id)
+        REFERENCES rulebook(rule_id),
+    CONSTRAINT ck_crv_status CHECK (violation_status IN
+        ('ALLEGED', 'SUBSTANTIATED', 'NOT_SUBSTANTIATED', 'WITHDRAWN'))
+);
+
+/* Persons of interest and other people involved in a case. */
+CREATE TABLE case_person (
+    case_id               NUMBER(10)    NOT NULL,
+    person_id             NUMBER(10)    NOT NULL,
+    involvement_type      VARCHAR2(80)  NOT NULL,
+    person_of_interest    CHAR(1)       DEFAULT 'Y' NOT NULL,
+    monitoring_status     VARCHAR2(25)  DEFAULT 'ACTIVE' NOT NULL,
+    CONSTRAINT pk_case_person PRIMARY KEY (case_id, person_id),
+    CONSTRAINT fk_cp_case FOREIGN KEY (case_id)
+        REFERENCES disciplinary_case(case_id) ON DELETE CASCADE,
+    CONSTRAINT fk_cp_person FOREIGN KEY (person_id)
+        REFERENCES person(person_id),
+    CONSTRAINT ck_cp_poi CHECK (person_of_interest IN ('Y', 'N')),
+    CONSTRAINT ck_cp_status CHECK (monitoring_status IN
+        ('ACTIVE', 'CLEARED', 'CLOSED', 'REFERRED'))
+);
+
+CREATE TABLE case_investigator (
+    case_id       NUMBER(10)    NOT NULL,
+    admin_id      NUMBER(10)    NOT NULL,
+    assigned_date DATE          DEFAULT SYSDATE NOT NULL,
+    investigator_role VARCHAR2(80),
+    CONSTRAINT pk_case_investigator PRIMARY KEY (case_id, admin_id),
+    CONSTRAINT fk_ci_case FOREIGN KEY (case_id)
+        REFERENCES disciplinary_case(case_id) ON DELETE CASCADE,
+    CONSTRAINT fk_ci_admin FOREIGN KEY (admin_id)
+        REFERENCES administrator(admin_id)
+);
+
+/* EVIDENCE is modeled as a weak entity identified within its CASE. */
+CREATE TABLE evidence (
+    case_id               NUMBER(10)      NOT NULL,
+    evidence_no           NUMBER(10)      NOT NULL,
+    description           VARCHAR2(2000)  NOT NULL,
+    collected_date        DATE            NOT NULL,
+    collected_by_admin_id NUMBER(10),
+    CONSTRAINT pk_evidence PRIMARY KEY (case_id, evidence_no),
+    CONSTRAINT fk_ev_case FOREIGN KEY (case_id)
+        REFERENCES disciplinary_case(case_id) ON DELETE CASCADE,
+    CONSTRAINT fk_ev_admin FOREIGN KEY (collected_by_admin_id)
+        REFERENCES administrator(admin_id)
+);
+
+/* ---------------------------------------------------------------------------
+   8. INDEXES FOR FOREIGN-KEY LOOKUPS
+   Oracle does not automatically create indexes for foreign-key columns.
+   --------------------------------------------------------------------------- */
+CREATE INDEX ix_ur_role              ON user_role(role_id);
+CREATE INDEX ix_ur_assigner          ON user_role(assigned_by_user_id);
+CREATE INDEX ix_fit_player           ON player_fitness_availability(player_id);
+CREATE INDEX ix_fit_admin            ON player_fitness_availability(recorded_by_admin_id);
+CREATE INDEX ix_match_tournament     ON cricket_match(tournament_id);
+CREATE INDEX ix_mt_team              ON match_team(team_id);
+CREATE INDEX ix_pth_team             ON player_team_history(team_id);
+CREATE INDEX ix_pm_mentee            ON player_mentor(mentee_player_id);
+CREATE INDEX ix_po_player            ON player_observation(player_id);
+CREATE INDEX ix_po_match             ON player_observation(match_id);
+CREATE INDEX ix_cr_player            ON career_record(player_id);
+CREATE INDEX ix_cr_team              ON career_record(team_id);
+CREATE INDEX ix_bp_player            ON batting_performance(player_id);
+CREATE INDEX ix_bp_summary           ON batting_performance(bat_summary_id);
+CREATE INDEX ix_bp_admin             ON batting_performance(recorded_by_admin);
+CREATE INDEX ix_bop_player           ON bowling_performance(player_id);
+CREATE INDEX ix_bop_summary          ON bowling_performance(bowl_summary_id);
+CREATE INDEX ix_bop_admin            ON bowling_performance(recorded_by_admin);
+CREATE INDEX ix_fp_player            ON fielding_performance(player_id);
+CREATE INDEX ix_fp_summary           ON fielding_performance(field_summary_id);
+CREATE INDEX ix_fp_admin             ON fielding_performance(recorded_by_admin);
+CREATE INDEX ix_comp_admin           ON complaint(recorded_by_admin_id);
+CREATE INDEX ix_sa_admin             ON suspicious_activity(recorded_by_admin_id);
+CREATE INDEX ix_cc_complaint         ON case_complaint(complaint_id);
+CREATE INDEX ix_ca_activity          ON case_activity(activity_id);
+CREATE INDEX ix_crv_rule             ON case_rule_violation(rule_id);
+CREATE INDEX ix_cp_person            ON case_person(person_id);
+CREATE INDEX ix_ci_admin             ON case_investigator(admin_id);
+CREATE INDEX ix_ev_admin             ON evidence(collected_by_admin_id);
+
+/* ---------------------------------------------------------------------------
+   9. DERIVED-VALUE VIEWS
+   --------------------------------------------------------------------------- */
+CREATE OR REPLACE VIEW v_person_age AS
+SELECT
+    p.person_id,
+    p.first_name,
+    p.last_name,
+    p.date_of_birth,
+    CASE
+        WHEN p.date_of_birth IS NULL THEN NULL
+        ELSE TRUNC(MONTHS_BETWEEN(SYSDATE, p.date_of_birth) / 12)
+    END AS age
+FROM person p;
+
+CREATE OR REPLACE VIEW v_career_record AS
+SELECT
+    c.*,
+    CASE
+        WHEN c.start_date IS NULL THEN NULL
+        ELSE NVL(c.end_date, TRUNC(SYSDATE)) - c.start_date
+    END AS duration_days
+FROM career_record c;
+
+CREATE OR REPLACE VIEW v_batting_performance AS
+SELECT
+    b.*,
+    CASE
+        WHEN b.balls_faced = 0 THEN NULL
+        ELSE ROUND((b.runs_scored * 100) / b.balls_faced, 2)
+    END AS strike_rate
+FROM batting_performance b;
+
+CREATE OR REPLACE VIEW v_bowling_performance AS
+SELECT
+    b.*,
+    TRUNC(b.balls_bowled / 6) || '.' || MOD(b.balls_bowled, 6)
+        AS overs_bowled,
+    CASE
+        WHEN b.balls_bowled = 0 THEN NULL
+        ELSE ROUND((b.runs_conceded * 6) / b.balls_bowled, 2)
+    END AS economy_rate
+FROM bowling_performance b;
+
+CREATE OR REPLACE VIEW v_batting_summary AS
+SELECT
+    b.*,
+    CASE
+        WHEN b.times_out = 0 THEN NULL
+        ELSE ROUND(b.total_runs / b.times_out, 2)
+    END AS batting_average,
+    CASE
+        WHEN b.total_balls_faced = 0 THEN NULL
+        ELSE ROUND((b.total_runs * 100) / b.total_balls_faced, 2)
+    END AS strike_rate
+FROM batting_summary b;
+
+CREATE OR REPLACE VIEW v_bowling_summary AS
+SELECT
+    b.*,
+    TRUNC(b.total_balls_bowled / 6) || '.' ||
+        MOD(b.total_balls_bowled, 6) AS overs_bowled,
+    CASE
+        WHEN b.total_wickets = 0 THEN NULL
+        ELSE ROUND(b.total_runs_conceded / b.total_wickets, 2)
+    END AS bowling_average,
+    CASE
+        WHEN b.total_balls_bowled = 0 THEN NULL
+        ELSE ROUND((b.total_runs_conceded * 6) /
+                   b.total_balls_bowled, 2)
+    END AS economy_rate,
+    CASE
+        WHEN b.best_wickets IS NULL THEN NULL
+        ELSE TO_CHAR(b.best_wickets) || '/' ||
+             TO_CHAR(NVL(b.best_runs_conceded, 0))
+    END AS best_bowling_figures
+FROM bowling_summary b;
+
+PROMPT PitchSync database skeleton created successfully.
