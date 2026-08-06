@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f6f8f5;
+  --surface: #ffffff;
+  --surface-muted: #f0f4f1;
+  --sidebar: #0d2630;
+  --sidebar-text: #eaf2ee;
+  --primary: #147a50;
+  --primary-hover: #106640;
+  --primary-soft: #e8f4ed;
+  --accent-gold: #b89a3d;
+  --text: #172521;
+  --text-muted: #68756f;
+  --border: #dde5e0;
+  --danger: #b64848;
+  --warning: #a97019;
+  --success: #2e7d54;
+  --info: #3e6e8c;
+  --radius: 0.7rem;
+}
+
+* { border-color: var(--border); }
+
+html { background: var(--background); }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-inter), Arial, sans-serif;
+  min-width: 1120px;
+}
+
+button, input, select, textarea { font: inherit; }
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--primary-soft); color: var(--text); }
+
+.heading-font { font-family: var(--font-barlow), var(--font-inter), sans-serif; }
+
+.pitch-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
