@@ -1,13 +1,12 @@
 "use client";
 
 import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from "react";
-import { clearDemoSession, emptyDemoSession, getDemoSessionSnapshot, subscribeDemoSession, writeSelectedRole, writeSignedInSession } from "./demo-session";
+import { clearDemoSession, emptyDemoSession, getDemoSessionSnapshot, subscribeDemoSession, writeSelectedRole } from "./demo-session";
 import type { DemoSession, RoleId } from "./types";
 
 type DemoAuthContextValue = DemoSession & {
   hydrated: boolean;
-  beginDemo: () => void;
-  selectRole: (role: RoleId) => void;
+  signIn: (role: RoleId) => void;
   signOut: () => void;
 };
 
@@ -16,10 +15,9 @@ const DemoAuthContext = createContext<DemoAuthContextValue | null>(null);
 export function DemoAuthProvider({ children }: { children: React.ReactNode }) {
   const session = useSyncExternalStore(subscribeDemoSession, getDemoSessionSnapshot, () => emptyDemoSession);
   const hydrated = useSyncExternalStore(() => () => undefined, () => true, () => false);
-  const beginDemo = useCallback(() => { writeSignedInSession(); }, []);
-  const selectRole = useCallback((role: RoleId) => { writeSelectedRole(role); }, []);
+  const signIn = useCallback((role: RoleId) => { writeSelectedRole(role); }, []);
   const signOut = useCallback(() => { clearDemoSession(); }, []);
-  const value = useMemo(() => ({ ...session, hydrated, beginDemo, selectRole, signOut }), [session, hydrated, beginDemo, selectRole, signOut]);
+  const value = useMemo(() => ({ ...session, hydrated, signIn, signOut }), [session, hydrated, signIn, signOut]);
   return <DemoAuthContext.Provider value={value}>{children}</DemoAuthContext.Provider>;
 }
 

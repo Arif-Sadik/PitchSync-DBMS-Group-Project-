@@ -1,6 +1,6 @@
 # PitchSync
 
-PitchSync is an internal cricket administration and integrity management interface created for an academic DBMS project. This repository represents a frontend-only milestone: it provides 15 polished product screens and one temporary role-selection screen, while backend completion remains at 0%.
+PitchSync is an internal cricket administration and integrity management interface created for an academic DBMS project. This repository represents a frontend-only milestone with 15 polished product screens, while backend completion remains at 0%.
 
 The application contains no backend, API routes, database client, authentication server, external integrations, or stored business records.
 
@@ -35,21 +35,18 @@ npm run build
 
 ```dotenv
 NEXT_PUBLIC_ENABLE_DEMO_AUTH=true
-NEXT_PUBLIC_SHOW_STATE_SWITCHER=false
 ```
-
-Set `NEXT_PUBLIC_SHOW_STATE_SWITCHER=true` to expose a development-only visual-state selector in the portal top bar.
 
 ## Temporary demonstration authentication
 
-The sign-in experience performs client-side shape validation only. It does not verify credentials, and the entered password is never stored. After validation, a role is selected on `/select-role`.
+The sign-in experience performs client-side shape validation only. It does not verify credentials, and the entered password is never stored. Email, password, and role are validated together on `/sign-in`, then the user is sent directly to the selected role’s dashboard.
 
 The temporary session uses `sessionStorage` under `pitchsync-demo-session` and contains only:
 
 - A temporary signed-in boolean
 - The selected role
 
-It contains no identity, password, token, or business record. Refreshing the browser tab preserves the selected role for that browser session; signing out removes it.
+It contains no identity, password, token, or business record. Refreshing the browser tab preserves the selected role for that browser session; signing out removes it. Only one role is active in a session, and selecting another role requires signing out and signing in again.
 
 Available roles are:
 
@@ -80,7 +77,7 @@ Role definitions, visual accents, dashboards, navigation, and route access are m
 14. Complaint registry — `/integrity/complaints`
 15. Integrity case details — `/integrity/cases/[caseId]`
 
-`/select-role` is temporary scaffolding and is not counted as a product screen. The supported preview paths are `/players/preview`, `/matches/preview`, and `/integrity/cases/preview`; they render blank structural detail screens rather than invented records.
+The supported structural paths are `/players/preview`, `/matches/preview`, and `/integrity/cases/preview`; they render blank detail screens rather than invented records. The former `/select-role` route has been removed because role selection now occurs during sign-in.
 
 ## No-dummy-data policy
 
@@ -90,7 +87,7 @@ The registration form keeps user-entered values only in active React component m
 
 ## Data-state previews
 
-With the state switcher enabled, use the top-bar control or add one of these query parameters to data-driven routes:
+For development checks, add one of these query parameters to data-driven routes:
 
 - `?state=loading`
 - `?state=empty`
@@ -110,8 +107,7 @@ When real session infrastructure is available:
 1. Replace `DemoAuthProvider`.
 2. Replace `DemoRouteGuard`.
 3. Connect route access to the backend session.
-4. Remove `/select-role`.
-5. Remove the `sessionStorage` adapter in `src/features/demo-auth`.
+4. Remove the `sessionStorage` adapter in `src/features/demo-auth`.
 
 Product screens and role navigation do not need to be rewritten for this change.
 
@@ -120,3 +116,5 @@ Product screens and role navigation do not need to be rewritten for this change.
 Deferred modules include user-management details, role and permission editors, system logs and audit trail, database and external-service configuration, persons of interest, rulebook and evidence management, communications and documents, detailed career statistics, injury and training management, selection workflows, fixture editing, results entry, match-summary submission, notifications, reports and exports, finance, contracts, global search, file uploads, real authentication and authorization, database integration, and a mobile application layout.
 
 The planned demonstration scope is 22 screens. The current frontend completion estimate is approximately 68%. See `PROJECT_SCOPE.md` for the scope snapshot and `src/config/module-status.ts` for route-level status.
+
+Deferred sidebar entries remain visible but have no link, route, or click behavior. Development status, persistence details, and completion disclosures are intentionally kept out of the product interface and documented only here and in `PROJECT_SCOPE.md`.

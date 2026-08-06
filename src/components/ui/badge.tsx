@@ -6,10 +6,9 @@ const badgeVariants = cva("inline-flex items-center gap-1 rounded-full border px
   variants: {
     variant: {
       default: "border-transparent bg-[var(--primary-soft)] text-[var(--primary)]",
-      outline: "bg-white text-[var(--text-muted)]",
-      planned: "border-[#eadfb8] bg-[#faf6e9] text-[#866d1e]",
-      unavailable: "border-[#d5e1e7] bg-[#eff4f6] text-[var(--info)]",
-      danger: "border-[#efcece] bg-[#faeeee] text-[var(--danger)]",
+      outline: "bg-[var(--surface)] text-[var(--text-muted)]",
+      unavailable: "border-[var(--border)] bg-[var(--surface-muted)] text-[var(--text-secondary)]",
+      danger: "border-[#efc8ce] bg-[var(--bd-red-soft)] text-[var(--bd-red-deep)]",
     },
   },
   defaultVariants: { variant: "default" },

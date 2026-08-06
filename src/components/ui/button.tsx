@@ -9,9 +9,9 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-[var(--primary)] text-white hover:bg-[var(--primary-hover)]",
-        outline: "border bg-white text-[var(--text)] hover:bg-[var(--surface-muted)]",
+        outline: "border bg-[var(--surface)] text-[var(--text)] hover:border-[var(--border-strong)] hover:bg-white",
         ghost: "text-[var(--text-muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]",
-        danger: "bg-[var(--danger)] text-white hover:opacity-90",
+        danger: "bg-[var(--bd-red-deep)] text-white hover:bg-[var(--danger)]",
       },
       size: {
         default: "h-10 px-4",

@@ -3,7 +3,6 @@ export type ModuleStatus = "implemented" | "preview" | "planned" | "temporary";
 export const moduleStatus = {
   rootRedirect: { route: "/", status: "temporary" },
   signIn: { route: "/sign-in", status: "temporary" },
-  roleSelection: { route: "/select-role", status: "temporary" },
   superAdminDashboard: { route: "/super-admin/dashboard", status: "implemented" },
   boardAdminDashboard: { route: "/board-admin/dashboard", status: "implemented" },
   performanceDashboard: { route: "/performance/dashboard", status: "implemented" },

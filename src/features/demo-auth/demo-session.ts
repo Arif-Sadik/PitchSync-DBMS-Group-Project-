@@ -35,12 +35,6 @@ export function subscribeDemoSession(listener: () => void) {
   return () => listeners.delete(listener);
 }
 
-export function writeSignedInSession() {
-  const session = { signedIn: true, role: null } satisfies DemoSession;
-  sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(session));
-  publish(session);
-}
-
 export function writeSelectedRole(role: RoleId) {
   const session = { signedIn: true, role } satisfies DemoSession;
   sessionStorage.setItem(DEMO_SESSION_KEY, JSON.stringify(session));

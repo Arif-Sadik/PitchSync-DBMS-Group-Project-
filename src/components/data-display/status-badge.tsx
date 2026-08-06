@@ -1,5 +1,5 @@
 import { Badge } from "@/components/ui/badge";
 
-export function StatusBadge({ status }: { status: "Planned" | "Backend unavailable" | "Awaiting backend" }) {
-  return <Badge variant={status === "Planned" ? "planned" : "unavailable"}>{status}</Badge>;
+export function StatusBadge({ status }: { status: "No data available" | "Not available" }) {
+  return <Badge variant="unavailable">{status}</Badge>;
 }
