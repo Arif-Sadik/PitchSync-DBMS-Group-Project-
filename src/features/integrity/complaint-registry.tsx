@@ -1,0 +1,24 @@
+"use client";
+
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { CalendarRange, CircleAlert, Clock3, FileWarning, LockKeyhole, Plus, ShieldAlert } from "lucide-react";
+import { MetricCard } from "@/components/data-display/metric-card";
+import { DataTableShell } from "@/components/data-display/data-table-shell";
+import { DataStateView } from "@/components/feedback/data-state-view";
+import { FilterBar } from "@/components/forms/filter-bar";
+import { SearchField } from "@/components/forms/search-field";
+import { Pagination } from "@/components/navigation/pagination";
+import { PageHeader } from "@/components/page/page-header";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { parseDataStatus } from "@/lib/data-state";
+
+const columns = ["Reference", "Date filed", "Complainant", "Subject", "Category", "Priority", "Status", "Assigned officer", "Actions"] as const;
+
+export function ComplaintRegistry() {
+  const searchParams = useSearchParams(); const pathname = usePathname(); const router = useRouter();
+  const setFilter = (key: string, value: string) => { const params = new URLSearchParams(searchParams.toString()); if (value && value !== "all") params.set(key, value); else params.delete(key); router.replace(`${pathname}${params.size ? `?${params}` : ""}`); };
+  const state = { status: parseDataStatus(searchParams.get("state"), "empty"), data: [] as readonly never[], message: "No complaint records found." } as const;
+  return <><div className="flex items-start gap-3 rounded-xl border border-[#eadfb8] bg-[#faf6e9] p-4"><LockKeyhole className="mt-0.5 size-5 shrink-0 text-[#866d1e]" /><div><p className="text-sm font-semibold text-[#6e5a1c]">Confidentiality notice</p><p className="mt-1 text-xs leading-5 text-[#7d6b35]">Complaint and case information is restricted to authorized integrity personnel.</p></div></div><PageHeader eyebrow="Integrity management" title="Complaint registry" description="Search, filter, and review complaint records." actions={<Button disabled aria-disabled="true"><Plus />File Complaint</Button>} /><section className="grid grid-cols-4 gap-4"><MetricCard label="Open complaints" icon={ShieldAlert} /><MetricCard label="High priority" icon={CircleAlert} /><MetricCard label="Awaiting review" icon={Clock3} /><MetricCard label="Referred cases" icon={FileWarning} /></section><FilterBar><SearchField value={searchParams.get("q") ?? ""} onChange={(value) => setFilter("q", value)} placeholder="Search complaint registry" /><Select value={searchParams.get("status") ?? "all"} onValueChange={(value) => setFilter("status", value)}><SelectTrigger aria-label="Filter by status"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All statuses</SelectItem><SelectItem value="submitted">Submitted</SelectItem><SelectItem value="review">Under review</SelectItem><SelectItem value="closed">Closed</SelectItem></SelectContent></Select><Select value={searchParams.get("priority") ?? "all"} onValueChange={(value) => setFilter("priority", value)}><SelectTrigger aria-label="Filter by priority"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All priorities</SelectItem><SelectItem value="low">Low</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="high">High</SelectItem><SelectItem value="critical">Critical</SelectItem></SelectContent></Select><Select value={searchParams.get("category") ?? "all"} onValueChange={(value) => setFilter("category", value)}><SelectTrigger aria-label="Filter by category"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All categories</SelectItem><SelectItem value="conduct">Conduct</SelectItem><SelectItem value="competition-integrity">Competition integrity</SelectItem><SelectItem value="safeguarding">Safeguarding</SelectItem><SelectItem value="administrative">Administrative</SelectItem></SelectContent></Select><div className="flex items-center gap-2 rounded-[10px] border px-3"><CalendarRange className="size-4 text-[var(--text-muted)]" /><Input className="w-32 border-0 p-0 shadow-none focus:ring-0" type="date" value={searchParams.get("from") ?? ""} onChange={(event) => setFilter("from", event.target.value)} aria-label="Filed from date" /><span className="text-xs text-[var(--text-muted)]">to</span><Input className="w-32 border-0 p-0 shadow-none focus:ring-0" type="date" value={searchParams.get("to") ?? ""} onChange={(event) => setFilter("to", event.target.value)} aria-label="Filed to date" /></div></FilterBar><div className="overflow-hidden rounded-xl border bg-white">{state.status === "empty" || state.status === "ready" ? <DataTableShell columns={columns} emptyTitle="No complaints found" /> : <DataStateView state={state} emptyTitle="No complaints found" />}<Pagination /></div></>;
+}

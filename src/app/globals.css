@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f4f0e6;
+  --surface: #fbf8f0;
+  --surface-elevated: #ffffff;
+  --surface-muted: #ece8de;
+  --bd-green: #006a4e;
+  --bd-green-deep: #063d32;
+  --bd-green-darker: #042c25;
+  --bd-green-soft: #e4f0ea;
+  --bd-green-hover: #005840;
+  --bd-red: #f42a41;
+  --bd-red-deep: #c91f35;
+  --bd-red-soft: #fce7ea;
+  --text-primary: #13251f;
+  --text-secondary: #5f6e67;
+  --text-on-dark: #f8f5ec;
+  --border: #d8ded7;
+  --border-strong: #bcc8c0;
+  --warning: #a66a16;
+  --danger: #c62f3f;
+  --success: #14734c;
+  --sidebar: var(--bd-green-deep);
+  --sidebar-text: var(--text-on-dark);
+  --primary: var(--bd-green);
+  --primary-hover: var(--bd-green-hover);
+  --primary-soft: var(--bd-green-soft);
+  --text: var(--text-primary);
+  --text-muted: var(--text-secondary);
+  --info: var(--bd-green);
+  --radius: 0.7rem;
+}
+
+* { border-color: var(--border); }
+
+html { background: var(--background); }
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: var(--font-inter), Arial, sans-serif;
+}
+
+button, input, select, textarea { font: inherit; }
+
+button, a { -webkit-tap-highlight-color: transparent; }
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+::selection { background: var(--bd-red-soft); color: var(--text); }
+
+.heading-font { font-family: var(--font-barlow), var(--font-inter), sans-serif; }
+
+.pitch-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+* {
+  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
