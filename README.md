@@ -2,22 +2,65 @@
 
 PitchSync is a centralized cricket board management and integrity monitoring system developed as part of the **CSE-302 Database Management System Sessional**.
 
-The platform is designed to manage cricket-related administrative and operational data, including players, teams, tournaments, matches, performance statistics, fitness availability, complaints, investigations, and disciplinary cases.
+## Repository Structure
 
-## Key Features
+```text
+PitchSync/
+PitchSync/
+|-- backend/
+|   |-- scripts/
+|   |-- src/
+|   |   |-- config/
+|   |   |-- controllers/
+|   |   |-- middleware/
+|   |   |-- routes/
+|   |   |-- services/
+|   |   `-- app.js
+|   |-- .env.example
+|   |-- README.md
+|   |-- package-lock.json
+|   `-- package.json
+|-- database/
+|   |-- functions/
+|   |-- migrations/
+|   |-- packages/
+|   |-- procedures/
+|   |-- reference/
+|   |-- seeds/
+|   |-- tests/
+|   |-- triggers/
+|   |-- views/
+|   `-- README.md
+|-- docs/
+|   |-- PitchSync_Project_Proposal.pdf
+|   `-- README.md
+|-- frontend/
+|   |-- src/
+|   `-- README.md
+|-- .gitignore
+`-- README.md
+```
 
-- User and role-based access management
-- Player profiles, fitness, and availability tracking
-- Team, squad, and player history management
-- Tournament and match administration
-- Batting, bowling, and fielding performance records
-- Aggregated player career statistics
-- Complaint and person-of-interest monitoring
-- Case investigation and evidence management
-- Rulebook clause and violation tracking
-- Administrative reporting and monitoring
+## Architecture
 
-## Technology Stack
+- Shared Oracle Database 12c Release 2 is hosted on an Azure Ubuntu VM inside Docker.
+- The Oracle pluggable database/service is `ORCLPDB1`.
+- Developers connect locally through an SSH tunnel instead of exposing Oracle directly:
+
+```text
+Developer PC
+-> localhost:1523
+-> SSH tunnel
+-> Azure VM
+-> Oracle listener 1521
+-> ORCLPDB1
+```
+
+- The frontend talks to the Node/Express backend.
+- The backend connects to Oracle using the `LTMS_APP` database user.
+- Database source control will follow an ordered migration approach in `database/migrations/`.
+
+## Planned Technology Stack
 
 - **Database:** Oracle Database 12c
 - **Framework:** Next.js
@@ -47,7 +90,25 @@ Military Institute of Science and Technology
 
 ## Status
 
-🚧 This project is currently under development.
+This project is currently in the structure and preparation stage.
+
+## Development Workflow
+
+```text
+git pull
+-> start Azure VM
+-> establish SSH tunnel
+-> work/test
+-> add SQL migrations or application changes
+-> commit
+-> push
+-> close tunnel
+-> deallocate Azure VM
+```
+
+Use SQL Developer separately for schema work through your own `DEV_*` proxy account when needed. Do not commit passwords, Azure IP addresses, private keys, subscription details, or other credentials.
+
+Copy `backend/.env.example` to `backend/.env`.
 
 ## License
 

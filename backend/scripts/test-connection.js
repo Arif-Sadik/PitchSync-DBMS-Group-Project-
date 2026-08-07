@@ -1,4 +1,4 @@
-const { getConnection } = require('./src/db');
+const { buildConnectString, getConnection } = require('../src/config/database');
 
 async function main() {
   let conn;
@@ -12,6 +12,7 @@ async function main() {
        FROM dual`
     );
     console.log('Connected successfully!');
+    console.log(`Connection string: ${buildConnectString()}`);
     console.log(result.rows);
   } catch (err) {
     console.error('Connection failed:', err);
