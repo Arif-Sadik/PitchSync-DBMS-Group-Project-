@@ -1,0 +1,87 @@
+.hero {
+  isolation: isolate;
+  position: relative;
+}
+
+.hero > :not(.fieldGraphic) {
+  position: relative;
+  z-index: 1;
+}
+
+.fieldGraphic {
+  --field-size: clamp(31rem, 49vw, 42.5rem);
+
+  aspect-ratio: 1;
+  left: 50%;
+  pointer-events: none;
+  position: absolute;
+  top: 54%;
+  transform: translate(-50%, -50%);
+  width: var(--field-size);
+  z-index: 0;
+}
+
+.fieldRing,
+.pitch,
+.pitchLengthLine,
+.pitchCrease {
+  display: block;
+  position: absolute;
+}
+
+.fieldRing {
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 50%;
+}
+
+.outerRing {
+  inset: 0;
+}
+
+.innerRing {
+  inset: 14.7%;
+}
+
+.pitch {
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 999px;
+  height: 42.35%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 14.12%;
+}
+
+.pitchLengthLine {
+  background: rgb(255 255 255 / 10%);
+  height: 60%;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 1px;
+}
+
+.pitchCrease {
+  background: rgb(255 255 255 / 10%);
+  height: 1px;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 66.67%;
+}
+
+@media (max-width: 47.999rem) {
+  .fieldGraphic {
+    --field-size: min(92vw, 34rem);
+
+    top: 58%;
+  }
+}
+
+@media (min-width: 48rem) and (max-height: 43.75rem) {
+  .fieldGraphic {
+    --field-size: clamp(28rem, 44vw, 36rem);
+
+    top: 50%;
+  }
+}
