@@ -1,5 +1,5 @@
 # PitchSync
-
+# 
 PitchSync is an internal cricket administration and integrity management interface created for an academic DBMS project. The current repository combines the working Next.js frontend at the repository root with a prepared Express/Node backend and shared Oracle database development structure.
 
 The frontend milestone includes 15 product screens. Backend and database integration are prepared but not complete, and no actual PitchSync schema migration has been created in Git yet.
