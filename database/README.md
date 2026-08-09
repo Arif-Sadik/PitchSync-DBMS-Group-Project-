@@ -1,5 +1,5 @@
 # Database
-
+# #. .
 This directory is prepared for Git-based database development, but the actual PitchSync schema has not been authored here yet.
 
 ## What Goes In Git
