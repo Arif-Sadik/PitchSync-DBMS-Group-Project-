@@ -14,7 +14,7 @@ function requireEnv(name, fallback) {
 
 function buildConnectString() {
   const host = requireEnv('DB_HOST', '127.0.0.1');
-  const port = requireEnv('DB_PORT', '1523');
+  const port = requireEnv('DB_PORT', '1521');
   const service = requireEnv('DB_SERVICE', 'ORCLPDB1');
 
   return `${host}:${port}/${service}`;
@@ -22,7 +22,7 @@ function buildConnectString() {
 
 function getDbConfig() {
   return {
-    user: requireEnv('DB_USER', 'LTMS_APP'),
+    user: requireEnv('DB_USER', 'PITCHSYNC_DEV'),
     password: requireEnv('DB_PASSWORD'),
     connectString: buildConnectString(),
   };
