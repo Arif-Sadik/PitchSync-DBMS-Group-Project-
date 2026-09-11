@@ -9,7 +9,6 @@ import oracledb, {
 } from "oracledb";
 import { z } from "zod";
 
-const TARGET_CONNECT_STRING = "localhost:1522/PITCHPDB";
 const poolAlias = "pitchsync-nextjs";
 
 const oracleEnvironmentSchema = z.object({
@@ -32,11 +31,9 @@ function getPoolAttributes(): PoolAttributes {
   });
 
   if (!parsed.success) {
-    throw new Error("Oracle server configuration is incomplete.");
-  }
-
-  if (parsed.data.ORACLE_CONNECT_STRING.toLowerCase() !== TARGET_CONNECT_STRING.toLowerCase()) {
-    throw new Error("Oracle server configuration must target the PitchSync PITCHPDB service on port 1522.");
+    throw new Error(
+      "Oracle server configuration is incomplete. Check ORACLE_USER, ORACLE_PASSWORD, and ORACLE_CONNECT_STRING.",
+    );
   }
 
   return {
@@ -54,11 +51,16 @@ function getPoolAttributes(): PoolAttributes {
 }
 
 export function getOraclePool(): Promise<Pool> {
-  oracleGlobal.pitchsyncOraclePool ??= oracledb.createPool(getPoolAttributes());
+  oracleGlobal.pitchsyncOraclePool ??= oracledb.createPool(
+    getPoolAttributes(),
+  );
+
   return oracleGlobal.pitchsyncOraclePool;
 }
 
-export async function withOracleConnection<T>(operation: (connection: Connection) => Promise<T>): Promise<T> {
+export async function withOracleConnection<T>(
+  operation: (connection: Connection) => Promise<T>,
+): Promise<T> {
   const pool = await getOraclePool();
   const connection = await pool.getConnection();
 
@@ -69,11 +71,15 @@ export async function withOracleConnection<T>(operation: (connection: Connection
   }
 }
 
-export async function withOracleTransaction<T>(operation: (connection: Connection) => Promise<T>): Promise<T> {
+export async function withOracleTransaction<T>(
+  operation: (connection: Connection) => Promise<T>,
+): Promise<T> {
   return withOracleConnection(async (connection) => {
     try {
       const result = await operation(connection);
+
       await connection.commit();
+
       return result;
     } catch (error) {
       await connection.rollback();

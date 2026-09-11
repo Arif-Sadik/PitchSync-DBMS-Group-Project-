@@ -8,14 +8,15 @@ import { getRole } from "@/config/roles";
 import { useAuth } from "./auth-provider";
 
 export function RouteGuard({ children }: { children: React.ReactNode }) {
-  const auth = useAuth();
+  const { hydrated, signedIn, role, session } = useAuth();
   const pathname = usePathname();
   const router = useRouter();
+  const integrityScope = session?.integrityScope;
   useEffect(() => {
-    if (!auth.hydrated) return;
-    if (!auth.signedIn || !auth.role) router.replace("/sign-in");
-    else if (!canAccessRoute(auth.role, pathname)) router.replace(getRole(auth.role)?.dashboardRoute ?? "/sign-in");
-  }, [auth.hydrated, auth.role, auth.signedIn, pathname, router]);
-  if (!auth.hydrated || !auth.signedIn || !auth.role || !canAccessRoute(auth.role, pathname)) return <div className="grid min-h-screen place-items-center"><LoadingState title="Preparing workspace" /></div>;
+    if (!hydrated) return;
+    if (!signedIn || !role) router.replace("/sign-in");
+    else if (!canAccessRoute(role, pathname, integrityScope)) router.replace(getRole(role)?.dashboardRoute ?? "/sign-in");
+  }, [hydrated, role, signedIn, pathname, router, integrityScope]);
+  if (!hydrated || !signedIn || !role || !canAccessRoute(role, pathname, integrityScope)) return <div className="grid min-h-screen place-items-center"><LoadingState title="Preparing workspace" /></div>;
   return children;
 }

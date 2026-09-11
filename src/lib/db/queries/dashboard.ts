@@ -3,8 +3,10 @@ import "server-only";
 import type { DashboardMetricValues, DashboardOverviewData, DashboardTableRow, PlayerPerformanceRecord } from "@/data/contracts";
 import type { RoleId } from "@/features/auth/types";
 import { queryRows, type Connection } from "@/lib/db/oracle";
-import { listCases } from "@/lib/db/queries/cases";
-import { listComplaints } from "@/lib/db/queries/complaints";
+import { loadSql } from "@/lib/db/sql/load-sql";
+import { formatDate } from "@/lib/format-date";
+import { listCases } from "@/lib/db/queries/integrity/03-cases/case-registry";
+import { listComplaints } from "@/lib/db/queries/integrity/02-complaints/complaints";
 import { listMatches } from "@/lib/db/queries/matches";
 import { listPlayerPerformance, findPlayerPerformance } from "@/lib/db/queries/performance";
 import { listPlayers } from "@/lib/db/queries/players";
@@ -13,7 +15,7 @@ import { listTournaments } from "@/lib/db/queries/tournaments";
 
 type PerformanceCountRow = { CAREER_COUNT: number; BATTING_COUNT: number; BOWLING_COUNT: number; FIELDING_COUNT: number };
 type MatchOperationCountRow = { MATCH_COUNT: number; TOURNAMENT_COUNT: number; PERFORMANCE_COUNT: number; OBSERVATION_COUNT: number };
-type IntegrityCountRow = { INVESTIGATOR_COUNT: number; EVIDENCE_COUNT: number };
+type IntegrityMetricsRow = { TOTAL_COMPLAINTS: number; UNRESOLVED_CASES: number; INVESTIGATOR_OFFICERS: number; EVIDENCE_ITEMS: number };
 type PerformanceCoverageRow = { MATCH_ID: number; MATCH_DATE: string; PERSON_ID: number; PLAYER_NAME: string; BATTING_COUNT: number; BOWLING_COUNT: number; FIELDING_COUNT: number };
 type MatchCoverageRow = { MATCH_ID: number; BATTING_COUNT: number; BOWLING_COUNT: number; FIELDING_COUNT: number };
 type ObservationRow = { MATCH_ID: number; PLAYER_NAME: string; OBSERVATION_DATE: string; REMARKS: string | null };
@@ -35,7 +37,7 @@ async function administrationDashboard(connection: Connection, superAdministrato
     const matches = await listMatches(connection, { page: 1, pageSize: 5, sort: "date" });
     return {
       metricValues: metrics(players.totalItems, teams.totalItems, tournaments.totalItems, matches.totalItems),
-      primaryRows: matches.data.map((match) => row(match.matchId, [match.matchId, match.tournamentName, match.participatingTeams || "—", match.matchDate, match.venue], `/matches/${match.matchId}`)),
+      primaryRows: matches.data.map((match) => row(match.matchId, [match.matchId, match.tournamentName, match.participatingTeams || "—", formatDate(match.matchDate), match.venue], `/matches/${match.matchId}`)),
       secondaryRows: players.data.map((player) => row(player.personId, [player.fullName, player.personId, player.playerRole, player.teamAssociationCount], `/players/${player.personId}`)),
       tertiaryRows: [],
     };
@@ -45,7 +47,7 @@ async function administrationDashboard(connection: Connection, superAdministrato
   return {
     metricValues: metrics(players.totalItems, teams.totalItems, tournaments.totalItems, cases.totalItems),
     primaryRows: tournaments.data.map((tournament) => row(tournament.tournamentId, [tournament.seasonYear ? `${tournament.tournamentName} ${tournament.seasonYear}` : tournament.tournamentName, tournament.tierLevel, tournament.teamCount, tournament.matchCount], `/tournaments/${tournament.tournamentId}`)),
-    secondaryRows: cases.data.map((caseRecord) => row(caseRecord.caseId, [caseRecord.caseId, caseRecord.status, caseRecord.dateOpened, caseRecord.complaintCount], `/integrity/cases/${caseRecord.caseId}`)),
+    secondaryRows: cases.data.map((caseRecord) => row(caseRecord.caseId, [caseRecord.caseId, caseRecord.status, formatDate(caseRecord.dateOpened), caseRecord.complaintCount], `/integrity/cases/${caseRecord.caseId}`)),
     tertiaryRows: [],
   };
 }
@@ -118,25 +120,21 @@ async function matchOfficialDashboard(connection: Connection): Promise<Dashboard
   `);
   return {
     metricValues: metrics(Number(counts?.MATCH_COUNT ?? 0), Number(counts?.TOURNAMENT_COUNT ?? 0), Number(counts?.PERFORMANCE_COUNT ?? 0), Number(counts?.OBSERVATION_COUNT ?? 0)),
-    primaryRows: matches.data.map((match) => row(match.matchId, [match.matchId, match.tournamentName, match.participatingTeams || "—", match.matchDate, match.venue, "View"], `/matches/${match.matchId}`)),
+    primaryRows: matches.data.map((match) => row(match.matchId, [match.matchId, match.tournamentName, match.participatingTeams || "—", formatDate(match.matchDate), match.venue, "View"], `/matches/${match.matchId}`)),
     secondaryRows: coverage.map((entry) => row(`coverage-${entry.MATCH_ID}`, [entry.MATCH_ID, entry.BATTING_COUNT, entry.BOWLING_COUNT, entry.FIELDING_COUNT], `/matches/${entry.MATCH_ID}`)),
-    tertiaryRows: observations.map((entry, index) => row(`observation-${entry.MATCH_ID}-${index}`, [entry.MATCH_ID, entry.PLAYER_NAME, entry.OBSERVATION_DATE, entry.REMARKS ?? "—"], `/matches/${entry.MATCH_ID}`)),
+    tertiaryRows: observations.map((entry, index) => row(`observation-${entry.MATCH_ID}-${index}`, [entry.MATCH_ID, entry.PLAYER_NAME, formatDate(entry.OBSERVATION_DATE), entry.REMARKS ?? "—"], `/matches/${entry.MATCH_ID}`)),
   };
 }
 
 async function integrityDashboard(connection: Connection): Promise<DashboardOverviewData> {
   const complaints = await listComplaints(connection, { page: 1, pageSize: 5, sort: "received" });
   const cases = await listCases(connection, { page: 1, pageSize: 5, sort: "opened" });
-  const counts = (await queryRows<IntegrityCountRow>(connection, `
-    SELECT
-      (SELECT COUNT(DISTINCT admin_id) FROM investigates WHERE is_deleted = 0) AS investigator_count,
-      (SELECT COUNT(*) FROM evidence WHERE is_deleted = 0) AS evidence_count
-    FROM dual
-  `))[0];
+  const sql = await loadSql("integrity/01-dashboard/Q01_manager_dashboard_metrics.sql");
+  const counts = (await queryRows<IntegrityMetricsRow>(connection, sql))[0];
   return {
-    metricValues: metrics(complaints.totalItems, cases.totalItems, Number(counts?.INVESTIGATOR_COUNT ?? 0), Number(counts?.EVIDENCE_COUNT ?? 0)),
-    primaryRows: cases.data.map((caseRecord) => row(caseRecord.caseId, [caseRecord.caseId, caseRecord.status, caseRecord.dateOpened, caseRecord.involvedPlayerCount, caseRecord.investigatorCount], `/integrity/cases/${caseRecord.caseId}`)),
-    secondaryRows: complaints.data.map((complaint) => row(complaint.complaintId, [complaint.complaintId, complaint.dateReceived, complaint.sourceType, complaint.linkedCaseCount], `/integrity/complaints/${complaint.complaintId}`)),
+    metricValues: metrics(complaints.totalItems, cases.totalItems, Number(counts?.INVESTIGATOR_OFFICERS ?? 0), Number(counts?.EVIDENCE_ITEMS ?? 0)),
+    primaryRows: cases.data.map((caseRecord) => row(caseRecord.caseId, [caseRecord.caseId, caseRecord.status, formatDate(caseRecord.dateOpened), caseRecord.involvedPlayerCount, caseRecord.investigatorCount], `/integrity/cases/${caseRecord.caseId}`)),
+    secondaryRows: complaints.data.map((complaint) => row(complaint.complaintId, [complaint.complaintId, formatDate(complaint.dateReceived), complaint.sourceType, complaint.linkedCaseCount], `/integrity/complaints/${complaint.complaintId}`)),
     tertiaryRows: [],
   };
 }
@@ -150,7 +148,7 @@ function playerDashboardRows(record: PlayerPerformanceRecord): DashboardOverview
   return {
     metricValues: metrics(record.teams.length, record.careerRecords.length, performanceByMatch.size, performanceCount),
     primaryRows: record.careerRecords.slice(0, 5).map((career) => row(career.recordId, [career.tierLevel, career.locationType, career.matchesPlayed, career.batting.length, career.bowling.length, career.fielding.length], `/performance/players/${record.personId}`)),
-    secondaryRows: [...performanceByMatch.entries()].sort((left, right) => right[1].date.localeCompare(left[1].date)).slice(0, 5).map(([matchId, entry]) => row(matchId, [matchId, entry.date, entry.batting ? "Recorded" : "—", entry.bowling ? "Recorded" : "—", entry.fielding ? "Recorded" : "—"], `/matches/${matchId}`)),
+    secondaryRows: [...performanceByMatch.entries()].sort((left, right) => right[1].date.localeCompare(left[1].date)).slice(0, 5).map(([matchId, entry]) => row(matchId, [matchId, formatDate(entry.date), entry.batting ? "Recorded" : "—", entry.bowling ? "Recorded" : "—", entry.fielding ? "Recorded" : "—"], `/matches/${matchId}`)),
     tertiaryRows: [],
   };
 }

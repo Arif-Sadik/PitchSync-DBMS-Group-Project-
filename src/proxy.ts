@@ -4,6 +4,7 @@ import { getRole } from "@/config/roles";
 import { SESSION_COOKIE, verifySessionToken } from "@/lib/auth/token";
 
 function apiFrontendRoute(pathname: string) {
+  if (pathname === "/api/me") return "/profile";
   if (pathname === "/api/players" || pathname === "/api/players/options") return "/players";
   if (/^\/api\/players\/[^/]+$/.test(pathname)) return "/players/[playerId]";
   if (pathname === "/api/teams") return "/teams";
@@ -18,6 +19,27 @@ function apiFrontendRoute(pathname: string) {
   if (/^\/api\/integrity\/complaints\/[^/]+$/.test(pathname)) return "/integrity/complaints/[complaintId]";
   if (pathname === "/api/integrity/cases") return "/integrity/cases";
   if (/^\/api\/integrity\/cases\/[^/]+$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/players$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (pathname === "/api/integrity/my-cases") return "/integrity/dashboard";
+  if (/^\/api\/integrity\/my-cases\/[^/]+$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/my-cases\/[^/]+\/findings$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (pathname === "/api/integrity/investigator/dashboard") return "/integrity/dashboard";
+  if (pathname === "/api/integrity/dashboard/finding-reviews") return "/integrity/dashboard";
+  if (pathname === "/api/integrity/investigator/needs-revision") return "/integrity/dashboard";
+  if (pathname === "/api/integrity/pending-complaints") return "/integrity/complaints";
+  if (pathname === "/api/integrity/investigators/assignable") return "/integrity/cases";
+  if (pathname === "/api/integrity/players/options") return "/integrity/cases";
+  if (/^\/api\/integrity\/cases\/[^/]+\/players\/[^/]+\/investigator$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/players\/[^/]+$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/rules$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/rules\/[^/]+$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/evidence$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/evidence\/[^/]+$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/status$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/findings$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/players\/[^/]+\/finding$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/cases\/[^/]+\/players\/[^/]+\/finding\/review$/.test(pathname)) return "/integrity/cases/[caseId]";
+  if (/^\/api\/integrity\/reports\/[^/]+$/.test(pathname)) return "/integrity/dashboard";
   if (pathname === "/api/integrity/rulebook") return "/integrity/rulebook";
   if (/^\/api\/integrity\/rulebook\/[^/]+$/.test(pathname)) return "/integrity/rulebook/[ruleId]";
   if (
@@ -58,12 +80,12 @@ export async function proxy(request: NextRequest) {
     if (!session) return NextResponse.json({ error: "Authentication required." }, { status: 401 });
     if (pathname === "/api/dashboard") return NextResponse.next();
     const frontendRoute = apiFrontendRoute(pathname);
-    if (!frontendRoute || !canAccessRoute(session.role, frontendRoute) || (session.role === "player" && !isOwnPlayerRoute(pathname, session.personId))) return NextResponse.json({ error: "You are not authorized to access this resource." }, { status: 403 });
+    if (!frontendRoute || !canAccessRoute(session.role, frontendRoute, session.integrityScope) || (session.role === "player" && !isOwnPlayerRoute(pathname, session.personId))) return NextResponse.json({ error: "You are not authorized to access this resource." }, { status: 403 });
     return NextResponse.next();
   }
 
   if (!session) return NextResponse.redirect(new URL("/sign-in", request.url));
-  if (!canAccessRoute(session.role, pathname) || (session.role === "player" && !isOwnPlayerRoute(pathname, session.personId))) return NextResponse.redirect(new URL(getRole(session.role)?.dashboardRoute ?? "/sign-in", request.url));
+  if (!canAccessRoute(session.role, pathname, session.integrityScope) || (session.role === "player" && !isOwnPlayerRoute(pathname, session.personId))) return NextResponse.redirect(new URL(getRole(session.role)?.dashboardRoute ?? "/sign-in", request.url));
   return NextResponse.next();
 }
 

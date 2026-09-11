@@ -1,15 +1,39 @@
 import { NextResponse } from "next/server";
+
 import { apiError, logServerError } from "@/lib/api/responses";
+import { requireIntegrityManager } from "@/lib/auth/server";
 import { withOracleConnection } from "@/lib/db/oracle";
-import { findComplaintById } from "@/lib/db/queries/complaints";
+import { findComplaintById } from "@/lib/db/queries/integrity/02-complaints/complaints";
 
 export const runtime = "nodejs";
-export async function GET(_request: Request, { params }: { params: Promise<{ complaintId: string }> }) {
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ complaintId: string }> },
+) {
   const { complaintId } = await params;
-  if (!/^\d+$/.test(complaintId)) return apiError("Invalid complaint reference.", 400);
+  if (!/^\d+$/.test(complaintId)) {
+    return apiError("Invalid complaint reference.", 400);
+  }
+
+  const session = await requireIntegrityManager();
+
+  if (!session) {
+    return apiError(
+      "Integrity Manager access is required.",
+      403,
+    );
+  }
+
   try {
-    const data = await withOracleConnection((connection) => findComplaintById(connection, Number(complaintId)));
-    if (!data) return apiError("Complaint record not found.", 404);
+    const data = await withOracleConnection((connection) =>
+      findComplaintById(connection, Number(complaintId)),
+    );
+
+    if (!data) {
+      return apiError("Complaint record not found.", 404);
+    }
+
     return NextResponse.json({ data });
   } catch (error) {
     logServerError("complaint detail", error);

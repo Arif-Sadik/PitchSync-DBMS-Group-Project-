@@ -1,4 +1,4 @@
-import type { RoleId } from "@/features/auth/types";
+import type { IntegrityScope, RoleId } from "@/features/auth/types";
 
 const allRoles: readonly RoleId[] = [
   "super-admin",
@@ -13,6 +13,19 @@ const registryEditors: readonly RoleId[] = ["super-admin", "board-admin"];
 const competitionRoles: readonly RoleId[] = ["super-admin", "board-admin", "performance-manager", "match-official", "player"];
 const performanceRoles: readonly RoleId[] = ["super-admin", "board-admin", "performance-manager", "player"];
 const integrityRoles: readonly RoleId[] = ["super-admin", "integrity-officer"];
+const integrityManagerOnlyRoutes = [
+  "/integrity/complaints",
+  "/integrity/complaints/[complaintId]",
+  "/integrity/reports",
+];
+
+const profileRoles: readonly RoleId[] = [
+  "super-admin",
+  "board-admin",
+  "performance-manager",
+  "match-official",
+  "integrity-officer",
+];
 
 export const routeAccess: Readonly<Record<string, readonly RoleId[]>> = {
   "/super-admin/dashboard": ["super-admin"],
@@ -23,10 +36,10 @@ export const routeAccess: Readonly<Record<string, readonly RoleId[]>> = {
   "/player/dashboard": ["player"],
   "/players": [...managementRoles],
   "/players/new": [...registryEditors],
-  "/players/[playerId]": [...managementRoles, "player"],
+  "/players/[playerId]": [...managementRoles, "integrity-officer", "player"],
   "/players/[playerId]/edit": [...registryEditors],
   "/teams": [...managementRoles],
-  "/teams/[teamId]": [...managementRoles],
+  "/teams/[teamId]": [...managementRoles, "integrity-officer"],
   "/tournaments": ["super-admin", "board-admin"],
   "/tournaments/[tournamentId]": ["super-admin", "board-admin"],
   "/matches": [...competitionRoles],
@@ -39,6 +52,8 @@ export const routeAccess: Readonly<Record<string, readonly RoleId[]>> = {
   "/integrity/cases/[caseId]": [...integrityRoles],
   "/integrity/rulebook": [...integrityRoles],
   "/integrity/rulebook/[ruleId]": [...integrityRoles],
+  "/integrity/reports": [...integrityRoles],
+  "/profile": [...profileRoles],
   "/super-admin/integrity-officers": [
   "super-admin",
 ],
@@ -61,7 +76,35 @@ export function normalizeRoute(pathname: string) {
   return dynamicRoutePatterns.find(([pattern]) => pattern.test(pathname))?.[1] ?? pathname;
 }
 
-export function canAccessRoute(role: RoleId, pathname: string) {
+export function canAccessIntegrityOfficer(
+  scope: IntegrityScope | undefined,
+  pathname: string,
+) {
+  const normalized = normalizeRoute(pathname);
+
+  if (!routeAccess[normalized]?.includes("integrity-officer")) {
+    return false;
+  }
+
+  if (scope === "MANAGER") {
+    return true;
+  }
+
+  if (scope === "INVESTIGATOR") {
+    return !integrityManagerOnlyRoutes.includes(normalized);
+  }
+
+  return false;
+}
+
+export function canAccessRoute(
+  role: RoleId,
+  pathname: string,
+  integrityScope?: IntegrityScope,
+) {
+  if (role === "integrity-officer") {
+    return canAccessIntegrityOfficer(integrityScope, pathname);
+  }
   return routeAccess[normalizeRoute(pathname)]?.includes(role) ?? false;
 }
 

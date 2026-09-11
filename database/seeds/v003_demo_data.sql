@@ -1029,7 +1029,7 @@ VALUES (
 INSERT INTO case_record
 (status, involvement_type, date_opened, referral_status, referred_to_authority)
 VALUES (
-    'REFERRED', 'Primary Subject', DATE '2026-07-02',
+    'UNDER_INVESTIGATION', 'Primary Subject', DATE '2026-07-02',
     'REFERRED', 'National Anti-Corruption Authority'
 );
 

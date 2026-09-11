@@ -12,7 +12,9 @@ import { TabNavigation } from "@/components/navigation/tab-navigation";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { TeamRecord } from "@/data/contracts";
+import { useAuth } from "@/features/auth";
 import { useApiData } from "@/features/shared/use-api-data";
+import { formatDate } from "@/lib/format-date";
 
 const tabs = [
   { value: "overview", label: "Overview" },
@@ -20,7 +22,7 @@ const tabs = [
   { value: "matches", label: "Competition Matches" },
 ] as const;
 
-function renderTeam(team: TeamRecord) {
+function renderTeam(team: TeamRecord, canOpenMatches: boolean) {
   const tournaments = new Set(team.matches.map((match) => match.tournamentId));
   return (
     <>
@@ -42,7 +44,7 @@ function renderTeam(team: TeamRecord) {
         </TabsContent>
         <TabsContent value="matches">
           <SectionCard title="Tournament matches" description="Matches in which this team participates." icon={CalendarDays}>
-            <DataTableShell columns={["Match ID", "Tournament", "Opponent", "Date", "Venue", "Actions"]} rows={team.matches.map((match) => ({ key: match.matchId, cells: [match.matchId, match.tournamentName, match.teams.filter((entry) => entry.teamId !== team.teamId).map((entry) => entry.teamName).join(", ") || "—", match.matchDate, match.venue, <Button key="view" asChild size="sm" variant="outline"><Link href={`/matches/${match.matchId}`}>View</Link></Button>] }))} emptyTitle="No team matches found" />
+            <DataTableShell columns={canOpenMatches ? ["Match ID", "Tournament", "Opponent", "Date", "Venue", "Actions"] : ["Match ID", "Tournament", "Opponent", "Date", "Venue"]} rows={team.matches.map((match) => ({ key: match.matchId, cells: [match.matchId, match.tournamentName, match.teams.filter((entry) => entry.teamId !== team.teamId).map((entry) => entry.teamName).join(", ") || "—", formatDate(match.matchDate), match.venue, ...(canOpenMatches ? [<Button key="view" asChild size="sm" variant="outline"><Link href={`/matches/${match.matchId}`}>View</Link></Button>] : [])] }))} emptyTitle="No team matches found" />
           </SectionCard>
         </TabsContent>
       </Tabs>
@@ -51,6 +53,8 @@ function renderTeam(team: TeamRecord) {
 }
 
 export function TeamDetails({ teamId }: { teamId: string }) {
+  const { role } = useAuth();
+  const canOpenMatches = role !== "integrity-officer";
   const state = useApiData<TeamRecord>(`/api/teams/${encodeURIComponent(teamId)}`);
-  return <DataStateView state={state} emptyTitle="Team not found">{(team) => team ? renderTeam(team) : null}</DataStateView>;
+  return <DataStateView state={state} emptyTitle="Team not found">{(team) => team ? renderTeam(team, canOpenMatches) : null}</DataStateView>;
 }

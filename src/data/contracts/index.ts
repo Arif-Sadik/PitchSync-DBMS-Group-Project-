@@ -253,6 +253,26 @@ export type IntegrityOfficerListItem = {
   department: string;
   accessScope: "MANAGER" | "INVESTIGATOR" | null;
   accountStatus: string | null;
+  activeAssignmentCount: number;
+};
+
+export type CurrentUserProfile = {
+  id: string;
+  fullName: string;
+  role: string;
+  email?: string;
+  designation?: string;
+  department?: string;
+  responsibility?: "Manager" | "Investigator";
+  username?: string;
+  accountStatus?: string;
+  joiningDate?: string;
+  accountCreated?: string;
+  lastLogin?: string;
+  dateOfBirth?: string;
+  presentAddress?: string;
+  permanentAddress?: string;
+  mobileNumbers?: readonly string[];
 };
 
 export type ComplaintRecord = {
@@ -312,6 +332,39 @@ export type IntegrityInvestigator = {
   assignedPlayerIds: readonly string[];
 };
 
+export type FindingConclusion =
+  | "SUBSTANTIATED"
+  | "NOT_SUBSTANTIATED"
+  | "INCONCLUSIVE";
+
+export type FindingRecommendation =
+  | "CLOSE_CASE"
+  | "EXTERNAL_REFERRAL"
+  | "FURTHER_INVESTIGATION"
+  | "NO_ACTION";
+
+export type FindingReviewStatus =
+  | "PENDING"
+  | "ACCEPTED"
+  | "REVISION_REQUESTED"
+  | "REJECTED";
+
+export type InvestigationFinding = {
+  playerId: string;
+  playerName: string;
+  submittedByAdminId: string;
+  investigatorName: string;
+  conclusion: FindingConclusion;
+  description: string;
+  recommendation: FindingRecommendation;
+  submittedAt: string;
+  reviewStatus: FindingReviewStatus;
+  reviewedByAdminId?: string | null;
+  reviewerName?: string | null;
+  reviewedAt?: string | null;
+  managerComment?: string | null;
+};
+
 export type IntegrityCaseRecord = {
   caseId: string;
   status: string;
@@ -333,8 +386,99 @@ export type IntegrityCaseListItem = {
   involvedPlayerCount: number;
   investigatorCount: number;
   complaintCount: number;
-  ruleCount: number;
-  evidenceCount: number;
+};
+
+export type CaseWithoutEvidenceItem = {
+  caseId: string;
+  status: string;
+  dateOpened: string;
+  involvementType: string | null;
+  referralStatus: string | null;
+};
+
+export type UnassignedInvolvementItem = {
+  caseId: string;
+  status: string;
+  dateOpened: string;
+  playerId: string;
+  player: string;
+  playerRole: string | null;
+};
+
+export type FrequentlyViolatedRuleItem = {
+  ruleId: string;
+  clauseNumber: string;
+  category: string;
+  caseCount: number;
+};
+
+export type InvestigatorWorkloadItem = {
+  investigatorId: string;
+  investigator: string;
+  designation: string | null;
+  department: string | null;
+  activeAssignments: number;
+  activeCases: number;
+};
+
+export type AssignableInvestigator = {
+  investigatorId: number;
+  investigatorName: string;
+  designation: string;
+  department: string;
+  activeAssignmentCount: number;
+};
+
+export type AssignedCaseItem = {
+  caseId: string;
+  status: string;
+  dateOpened: string;
+  involvementType: string | null;
+  referralStatus: string | null;
+  assignedPlayerId: string;
+  assignedPlayerName: string;
+  playerRole: string | null;
+};
+
+export type InvestigatorDashboardMetrics = {
+  activeCases: number;
+  activeAssignments: number;
+  closedAssignedCases: number;
+  pendingReviewCount: number;
+  revisionRequestedCount: number;
+};
+
+export type PendingFindingReviewItem = {
+  caseId: string;
+  playerId: string;
+  playerName: string;
+  submittedByAdminId: string;
+  investigatorName: string;
+  recommendation: FindingRecommendation;
+  submittedAt: string;
+  reviewStatus: FindingReviewStatus;
+};
+
+export type NeedsRevisionFindingItem = {
+  caseId: string;
+  playerId: string;
+  playerName: string;
+  recommendation: FindingRecommendation;
+  submittedAt: string;
+  reviewStatus: FindingReviewStatus;
+  managerComment: string | null;
+};
+
+export type InvestigatorCaseDetail = {
+  caseId: string;
+  status: string;
+  dateOpened: string;
+  referralStatus?: string;
+  referredToAuthority?: string;
+  complaints: readonly ComplaintRecord[];
+  rules: readonly RulebookRecord[];
+  evidence: readonly EvidenceRecord[];
+  myAssignments: readonly InvestigationAssignment[];
 };
 
 export interface ReadRepository<T> {

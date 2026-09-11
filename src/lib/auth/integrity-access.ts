@@ -10,7 +10,8 @@ import type { Connection } from "@/lib/db/oracle";
 import {
   getActiveIntegrityScope,
   hasActiveInvestigationAssignment,
-} from "@/lib/db/queries/integrity-access";
+  hasActiveInvestigationAssignmentForPlayer,
+} from "@/lib/db/queries/integrity/07-access/integrity-access";
 
 export type IntegrityOfficerSession =
   AuthSession & {
@@ -99,6 +100,56 @@ export async function requireAssignedInvestigator(
       connection,
       adminId,
       caseId,
+    );
+
+  if (!assigned) {
+    return null;
+  }
+
+  return {
+    ...officer,
+    integrityScope: "INVESTIGATOR",
+  };
+}
+
+export async function requireAssignedInvestigatorForPlayer(
+  connection: Connection,
+  session: AuthSession | null,
+  caseId: number,
+  playerId: number,
+): Promise<IntegrityOfficerSession | null> {
+  const officer = requireIntegrityOfficer(session);
+
+  if (!officer) {
+    return null;
+  }
+
+  const adminId = Number(officer.personId);
+
+  if (
+    !Number.isInteger(adminId) ||
+    !Number.isInteger(caseId) ||
+    !Number.isInteger(playerId)
+  ) {
+    return null;
+  }
+
+  const currentScope =
+    await getActiveIntegrityScope(
+      connection,
+      adminId,
+    );
+
+  if (currentScope !== "INVESTIGATOR") {
+    return null;
+  }
+
+  const assigned =
+    await hasActiveInvestigationAssignmentForPlayer(
+      connection,
+      adminId,
+      caseId,
+      playerId,
     );
 
   if (!assigned) {

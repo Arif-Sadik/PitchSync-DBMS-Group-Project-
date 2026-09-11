@@ -13,7 +13,7 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import type { RoleId } from "@/features/auth/types";
+import type { IntegrityScope, RoleId } from "@/features/auth/types";
 
 export type NavigationItem = {
   label: string;
@@ -29,8 +29,31 @@ const matches = { label: "Matches", href: "/matches", icon: Medal } as const;
 const performance = { label: "Performance", href: "/performance/players", icon: ChartNoAxesColumn } as const;
 const complaints = { label: "Complaints", href: "/integrity/complaints", icon: ShieldAlert } as const;
 const cases = { label: "Cases", href: "/integrity/cases", icon: BriefcaseBusiness } as const;
+const myCases = { label: "My Cases", href: "/integrity/cases", icon: BriefcaseBusiness } as const;
 const rulebook = { label: "Rulebook", href: "/integrity/rulebook", icon: BookOpen } as const;
 const reports = { label: "Reports", icon: FileBarChart, disabled: true } as const;
+const managerReports = { label: "Reports", href: "/integrity/reports", icon: FileBarChart } as const;
+
+const integrityDashboard = { label: "Dashboard", href: "/integrity/dashboard", icon: Gauge } as const;
+
+export const managerIntegrityNavigation: readonly NavigationItem[] = [
+  integrityDashboard,
+  complaints,
+  cases,
+  rulebook,
+  managerReports,
+];
+
+export const investigatorIntegrityNavigation: readonly NavigationItem[] = [
+  integrityDashboard,
+  myCases,
+  rulebook,
+];
+
+export const navigationByIntegrityScope: Record<IntegrityScope, readonly NavigationItem[]> = {
+  MANAGER: managerIntegrityNavigation,
+  INVESTIGATOR: investigatorIntegrityNavigation,
+};
 
 export const navigationByRole: Record<RoleId, readonly NavigationItem[]> = {
   "super-admin": [
@@ -68,13 +91,7 @@ export const navigationByRole: Record<RoleId, readonly NavigationItem[]> = {
     matches,
     reports,
   ],
-  "integrity-officer": [
-    { label: "Dashboard", href: "/integrity/dashboard", icon: Gauge },
-    complaints,
-    cases,
-    rulebook,
-    reports,
-  ],
+  "integrity-officer": managerIntegrityNavigation,
   player: [
     { label: "Dashboard", href: "/player/dashboard", icon: Gauge },
     { label: "Player Profile", href: "/players/record", icon: UserRound },

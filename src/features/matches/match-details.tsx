@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { MatchRecord } from "@/data/contracts";
 import { useApiData } from "@/features/shared/use-api-data";
+import { formatDate } from "@/lib/format-date";
 
 const tabs = [
   { value: "overview", label: "Overview" },
@@ -27,14 +28,14 @@ function renderMatch(match: MatchRecord) {
   return (
     <>
       <EntityHeader eyebrow="Match registry" title={match.teams.map((team) => team.teamName).join(" vs ") || `Match ${match.matchId}`} referenceLabel="Match reference" reference={match.matchId} loaded>
-        <DetailGrid columns={4}><DetailField label="Tournament" value={match.tournamentName} /><DetailField label="Match date" value={match.matchDate} /><DetailField label="Venue" value={match.venue} /><DetailField label="Participating teams" value={match.teams.length} /></DetailGrid>
+        <DetailGrid columns={4}><DetailField label="Tournament" value={match.tournamentName} /><DetailField label="Match date" value={formatDate(match.matchDate)} /><DetailField label="Venue" value={match.venue} /><DetailField label="Participating teams" value={match.teams.length} /></DetailGrid>
       </EntityHeader>
       <Tabs defaultValue="overview">
         <TabNavigation tabs={tabs} />
         <TabsContent value="overview">
           <div className="space-y-5">
             <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-              <SectionCard title="Match information" icon={MapPin}><DetailGrid columns={2}><DetailField label="Match ID" value={match.matchId} /><DetailField label="Tournament" value={match.tournamentName} /><DetailField label="Match date" value={match.matchDate} /><DetailField label="Venue" value={match.venue} /><DetailField label="Format" value={match.format} /></DetailGrid></SectionCard>
+              <SectionCard title="Match information" icon={MapPin}><DetailGrid columns={2}><DetailField label="Match ID" value={match.matchId} /><DetailField label="Tournament" value={match.tournamentName} /><DetailField label="Match date" value={formatDate(match.matchDate)} /><DetailField label="Venue" value={match.venue} /><DetailField label="Format" value={match.format} /></DetailGrid></SectionCard>
               <SectionCard title="Participating teams" icon={UsersRound}><DataTableShell minWidth={480} columns={["Team", "Team ID", "Category", "Franchise owner", "Actions"]} rows={match.teams.map((team) => ({ key: team.teamId, cells: [team.teamName, team.teamId, team.category, team.franchiseOwner ?? "Board administered", <Button key="view" asChild size="sm" variant="outline"><Link href={`/teams/${team.teamId}`}>View</Link></Button>] }))} emptyTitle="No participating teams found" /></SectionCard>
             </section>
             <SectionCard title="Operational summary" description="Current match state and any recorded outcome." icon={ClipboardList}><DetailGrid columns={3}><DetailField label="Match state" value={match.status} /><DetailField label="Result summary" value={match.result} /><DetailField label="Winner" value={winner?.teamName} /></DetailGrid></SectionCard>

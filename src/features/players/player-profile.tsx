@@ -15,6 +15,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { PlayerRecord } from "@/data/contracts";
 import { useAuth } from "@/features/auth";
 import { useApiData } from "@/features/shared/use-api-data";
+import { formatDate } from "@/lib/format-date";
 
 const tabs = [
   { value: "overview", label: "Overview" },
@@ -65,7 +66,7 @@ function renderPlayer(player: PlayerRecord, canEdit: boolean) {
                 <DetailGrid columns={2}>
                   <DetailField label="First name" value={player.person.firstName} />
                   <DetailField label="Last name" value={player.person.lastName} />
-                  <DetailField label="Date of birth" value={player.person.dateOfBirth} />
+                  <DetailField label="Date of birth" value={formatDate(player.person.dateOfBirth)} />
                   <DetailField label="Phone" value={player.person.phones.join(", ") || "—"} />
                   <DetailField label="Present address" value={player.person.presentAddress} />
                   <DetailField label="Permanent address" value={player.person.permanentAddress} />
@@ -100,7 +101,7 @@ function renderPlayer(player: PlayerRecord, canEdit: boolean) {
           <SectionCard title="Career records" description="Career summaries by tier and location." icon={GraduationCap}>
             <DataTableShell
               columns={["Record ID", "Tier level", "Location type", "Matches played", "Start date", "End date"]}
-              rows={player.careerRecords.map((record) => ({ key: record.recordId, cells: [record.recordId, record.tierLevel, record.locationType, record.matchesPlayed, record.startDate, record.endDate ?? "Current"] }))}
+              rows={player.careerRecords.map((record) => ({ key: record.recordId, cells: [record.recordId, record.tierLevel, record.locationType, record.matchesPlayed, formatDate(record.startDate), record.endDate ? formatDate(record.endDate) : "Current"] }))}
               emptyTitle="No career records found"
             />
           </SectionCard>

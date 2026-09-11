@@ -17,7 +17,7 @@ export function useApiData<T>(endpoint: string): DataState<T | null> {
           return;
         }
         if (!response.ok) throw new Error(body.error ?? "Unable to load this record.");
-        setState(body.data ? { status: "ready", data: body.data } : { status: "empty", data: null, message: "Record not found." });
+        setState(body.data !== undefined && body.data !== null ? { status: "ready", data: body.data } : { status: "empty", data: null, message: "Record not found." });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === "AbortError") return;

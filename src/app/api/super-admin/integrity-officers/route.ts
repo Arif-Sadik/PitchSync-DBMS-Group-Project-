@@ -6,7 +6,10 @@ import {
 } from "@/lib/api/responses";
 import { requireServerSession } from "@/lib/auth/server";
 import { withOracleConnection } from "@/lib/db/oracle";
-import { listIntegrityOfficers } from "@/lib/db/queries/integrity-access";
+import {
+  listAssignableInvestigators,
+} from "@/lib/db/queries/integrity/07-access/assignable-investigators";
+import { listIntegrityOfficers } from "@/lib/db/queries/integrity/07-access/integrity-access";
 
 export const runtime = "nodejs";
 
@@ -23,12 +26,24 @@ export async function GET() {
   }
 
   try {
-    const officers = await withOracleConnection(
-      listIntegrityOfficers,
+    const result = await withOracleConnection(
+      async (connection) => {
+        const officers = await listIntegrityOfficers(
+          connection,
+        );
+        const assignableInvestigators =
+          await listAssignableInvestigators(
+            connection,
+          );
+
+        return { officers, assignableInvestigators };
+      },
     );
 
     return NextResponse.json({
-      data: officers,
+      data: result.officers,
+      assignableInvestigators:
+        result.assignableInvestigators,
     });
   } catch (error) {
     logServerError(

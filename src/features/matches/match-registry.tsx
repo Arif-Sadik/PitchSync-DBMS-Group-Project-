@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import type { MatchListItem } from "@/data/contracts";
 import { RegistryTable } from "@/features/shared/registry-table";
 import { useRegistryFilters } from "@/features/shared/use-registry-filters";
+import { formatDate } from "@/lib/format-date";
 
 const columns = ["Match ID", "Tournament", "Participating teams", "Match date", "Venue", "Format", "Status", "Actions"] as const;
 
@@ -27,7 +28,7 @@ export function MatchRegistry() {
         match.matchId,
         match.tournamentName,
         match.participatingTeams || "—",
-        match.matchDate,
+        formatDate(match.matchDate),
         match.venue,
         match.format,
         match.status,

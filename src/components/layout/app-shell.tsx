@@ -10,13 +10,13 @@ import { MainContent } from "./main-content";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const { role: roleId } = useAuth();
+  const { role: roleId, session } = useAuth();
   const role = getRole(roleId);
   if (!role) return null;
   const style = { "--primary": role.accent, "--primary-hover": role.accentHover, "--primary-soft": role.accentSoft } as React.CSSProperties;
   return (
     <div style={style} className="min-h-screen overflow-x-hidden">
-      <Sidebar role={role} open={navigationOpen} onClose={() => setNavigationOpen(false)} />
+      <Sidebar role={role} open={navigationOpen} onClose={() => setNavigationOpen(false)} integrityScope={session?.integrityScope} />
       <div className="min-h-screen lg:pl-[248px]">
         <TopBar onOpenNavigation={() => setNavigationOpen(true)} />
         <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18 }}>

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import type { TournamentRecord } from "@/data/contracts";
 import { useApiData } from "@/features/shared/use-api-data";
+import { formatDate } from "@/lib/format-date";
 
 const tabs = [
   { value: "overview", label: "Overview" },
@@ -39,7 +40,7 @@ function renderTournament(tournament: TournamentRecord) {
         </TabsContent>
         <TabsContent value="sponsors"><SectionCard title="Tournament sponsors" icon={Handshake}>{tournament.sponsors.length > 0 ? <ul className="space-y-2">{tournament.sponsors.map((sponsor) => <li key={sponsor} className="rounded-lg border bg-[var(--surface)] px-4 py-3 text-sm font-medium">{sponsor}</li>)}</ul> : <EmptyState compact title="No sponsors recorded" description="No sponsor information is available for this tournament." />}</SectionCard></TabsContent>
         <TabsContent value="teams"><SectionCard title="Participating teams" icon={UsersRound}><DataTableShell columns={["Team", "Team ID", "Category", "Franchise owner", "Actions"]} rows={tournament.teams.map((team) => ({ key: team.teamId, cells: [team.teamName, team.teamId, team.category, team.franchiseOwner ?? "Board administered", <Button key="view" asChild variant="outline" size="sm"><Link href={`/teams/${team.teamId}`}>View</Link></Button>] }))} emptyTitle="No participating teams found" /></SectionCard></TabsContent>
-        <TabsContent value="matches"><SectionCard title="Tournament matches" icon={CalendarDays}><DataTableShell columns={["Match ID", "Teams", "Date", "Venue", "Format", "Status", "Actions"]} rows={tournament.matches.map((match) => ({ key: match.matchId, cells: [match.matchId, match.teams.map((team) => team.teamName).join(" vs ") || "—", match.matchDate, match.venue, match.format ?? "—", match.status ?? "—", <Button key="view" asChild variant="outline" size="sm"><Link href={`/matches/${match.matchId}`}>View</Link></Button>] }))} emptyTitle="No tournament matches found" /></SectionCard></TabsContent>
+        <TabsContent value="matches"><SectionCard title="Tournament matches" icon={CalendarDays}><DataTableShell columns={["Match ID", "Teams", "Date", "Venue", "Format", "Status", "Actions"]} rows={tournament.matches.map((match) => ({ key: match.matchId, cells: [match.matchId, match.teams.map((team) => team.teamName).join(" vs ") || "—", formatDate(match.matchDate), match.venue, match.format ?? "—", match.status ?? "—", <Button key="view" asChild variant="outline" size="sm"><Link href={`/matches/${match.matchId}`}>View</Link></Button>] }))} emptyTitle="No tournament matches found" /></SectionCard></TabsContent>
       </Tabs>
     </>
   );

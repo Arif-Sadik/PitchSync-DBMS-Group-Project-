@@ -5,14 +5,32 @@ import { toast } from "sonner";
 import { ShieldCheck } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { PageHeader } from "@/components/page/page-header";
-import type { IntegrityOfficerListItem } from "@/data/contracts";
+import type {
+  AssignableInvestigator,
+  IntegrityOfficerListItem,
+} from "@/data/contracts";
 import type { IntegrityScope } from "@/features/auth/types";
 import { RegistryTable } from "@/features/shared/registry-table";
 import { useRegistryFilters } from "@/features/shared/use-registry-filters";
 
-const columns = ["Officer", "ID", "Email", "Department", "Account status", "Responsibility"] as const;
+const columns = ["Officer", "ID", "Email", "Department", "Account status", "Active assignments", "Responsibility"] as const;
+
+type ReplacementFlow = {
+  target: IntegrityScope;
+  replacementId: string | null;
+};
+
+async function loadAssignableInvestigators() {
+  const response = await fetch("/api/super-admin/integrity-officers");
+  const body = await response.json() as
+    | { assignableInvestigators?: readonly AssignableInvestigator[] }
+    | undefined;
+
+  return body?.assignableInvestigators ?? [];
+}
 
 function ResponsibilitySelect({
   officer,
@@ -23,10 +41,15 @@ function ResponsibilitySelect({
     officer.accessScope,
   );
   const [pending, setPending] = useState(false);
+  const [flow, setFlow] = useState<ReplacementFlow | null>(null);
+  const [replacements, setReplacements] = useState<
+    readonly AssignableInvestigator[]
+  >([]);
 
-  const update = async (next: IntegrityScope) => {
-    if (next === value) return;
-
+  const update = async (
+    next: IntegrityScope,
+    replacementInvestigatorId?: number,
+  ) => {
     setPending(true);
 
     try {
@@ -37,19 +60,36 @@ function ResponsibilitySelect({
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ scope: next }),
+          body: JSON.stringify({
+            scope: next,
+            ...(replacementInvestigatorId
+              ? { replacementInvestigatorId }
+              : {}),
+          }),
         },
       );
 
-      const body = await response.json() as { error?: string };
+      const body = await response.json() as
+        | { error?: string; data?: { reassignedCount?: number } }
+        | undefined;
 
       if (!response.ok) {
-        toast.error(body.error ?? "Unable to update responsibility.");
+        toast.error(body?.error ?? "Unable to update responsibility.");
         return;
       }
 
       setValue(next);
-      toast.success("Integrity responsibility updated.");
+      setFlow(null);
+
+      const reassigned = body?.data?.reassignedCount ?? 0;
+
+      if (reassigned > 0) {
+        toast.success(
+          `${reassigned} investigation assignment${reassigned === 1 ? "" : "s"} transferred before switching to Manager.`,
+        );
+      } else {
+        toast.success("Integrity responsibility updated.");
+      }
     } catch {
       toast.error("Unable to update responsibility.");
     } finally {
@@ -57,24 +97,130 @@ function ResponsibilitySelect({
     }
   };
 
+  const change = async (next: IntegrityScope) => {
+    if (next === value) return;
+
+    const needsReplacement =
+      officer.accessScope === "INVESTIGATOR" &&
+      next === "MANAGER" &&
+      officer.activeAssignmentCount > 0;
+
+    if (!needsReplacement) {
+      await update(next);
+      return;
+    }
+
+    setReplacements(
+      await loadAssignableInvestigators().catch(
+        () => [] as readonly AssignableInvestigator[],
+      ),
+    );
+    setFlow({ target: next, replacementId: null });
+  };
+
+  const confirm = async () => {
+    if (!flow?.replacementId) return;
+
+    await update(
+      flow.target,
+      Number(flow.replacementId),
+    );
+  };
+
+  const cancel = () => {
+    setFlow(null);
+  };
+
+  const available = replacements.filter(
+    (replacement) =>
+      replacement.investigatorId !== Number(officer.adminId),
+  );
+
   return (
-    <Select
-      value={value ?? ""}
-      onValueChange={(selected) => update(selected as IntegrityScope)}
-      disabled={pending}
-    >
-      <SelectTrigger
-        aria-label={`Responsibility for ${officer.fullName}`}
-        className="w-full min-w-44"
+    <div className="flex flex-col gap-2">
+      <Select
+        value={value ?? ""}
+        onValueChange={(selected) => change(selected as IntegrityScope)}
         disabled={pending}
       >
-        <SelectValue placeholder="Not assigned" />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="MANAGER">Manager</SelectItem>
-        <SelectItem value="INVESTIGATOR">Investigator</SelectItem>
-      </SelectContent>
-    </Select>
+        <SelectTrigger
+          aria-label={`Responsibility for ${officer.fullName}`}
+          className="w-full min-w-44"
+          disabled={pending}
+        >
+          <SelectValue placeholder="Not assigned" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="MANAGER">Manager</SelectItem>
+          <SelectItem value="INVESTIGATOR">Investigator</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {flow ? (
+        <div className="flex w-full min-w-72 flex-col gap-2 rounded-lg border p-3 shadow-sm">
+          <p className="text-xs text-[var(--text-muted)]">
+            Switching to Manager will stop this officer from
+            investigating. Choose an investigator to take over the{" "}
+            <strong>{officer.activeAssignmentCount}</strong> active
+            investigation assignment
+            {officer.activeAssignmentCount === 1 ? "" : "s"}.
+          </p>
+
+          <Select
+            value={flow.replacementId ?? ""}
+            onValueChange={(selected) =>
+              setFlow({ ...flow, replacementId: selected })
+            }
+          >
+            <SelectTrigger
+              aria-label="Replacement investigator"
+              className="w-full"
+            >
+              <SelectValue placeholder="Select replacement investigator" />
+            </SelectTrigger>
+            <SelectContent>
+              {available.length === 0 ? (
+                <SelectItem value="__none__" disabled>
+                  No other investigators are available
+                </SelectItem>
+              ) : (
+                available.map((replacement) => (
+                  <SelectItem
+                    key={replacement.investigatorId}
+                    value={String(replacement.investigatorId)}
+                  >
+                    {replacement.investigatorName} —{" "}
+                    {replacement.activeAssignmentCount} active
+                    assignment
+                    {replacement.activeAssignmentCount === 1 ? "" : "s"}
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={cancel}
+              disabled={pending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={confirm}
+              disabled={!flow.replacementId || pending}
+            >
+              Reassign &amp; switch to Manager
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -108,6 +254,9 @@ export function IntegrityOfficerOversight() {
             ) : (
               <span key="status" className="text-[var(--text-muted)]">—</span>
             ),
+            <span key="assignments" className="tabular-nums">
+              {officer.activeAssignmentCount}
+            </span>,
             <ResponsibilitySelect key="scope" officer={officer} />,
           ],
         })}
