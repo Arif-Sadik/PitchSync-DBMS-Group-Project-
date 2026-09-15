@@ -34,8 +34,8 @@ The verified project environment uses a dedicated schema and PDB:
 
 ```text
 Schema:  PITCHSYNC_OWNER
-Host:    localhost
-Port:    1522
+Host:    127.0.0.1
+Port:    1530
 Service: PITCHPDB
 ```
 

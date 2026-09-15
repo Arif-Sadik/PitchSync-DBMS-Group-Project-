@@ -4,7 +4,6 @@ import {
   Bell,
   BriefcaseBusiness,
   ChartNoAxesColumn,
-  FileBarChart,
   Gauge,
   Medal,
   ShieldAlert,
@@ -31,8 +30,6 @@ const complaints = { label: "Complaints", href: "/integrity/complaints", icon: S
 const cases = { label: "Cases", href: "/integrity/cases", icon: BriefcaseBusiness } as const;
 const myCases = { label: "My Cases", href: "/integrity/cases", icon: BriefcaseBusiness } as const;
 const rulebook = { label: "Rulebook", href: "/integrity/rulebook", icon: BookOpen } as const;
-const reports = { label: "Reports", icon: FileBarChart, disabled: true } as const;
-const managerReports = { label: "Reports", href: "/integrity/reports", icon: FileBarChart } as const;
 
 const integrityDashboard = { label: "Dashboard", href: "/integrity/dashboard", icon: Gauge } as const;
 
@@ -41,7 +38,6 @@ export const managerIntegrityNavigation: readonly NavigationItem[] = [
   complaints,
   cases,
   rulebook,
-  managerReports,
 ];
 
 export const investigatorIntegrityNavigation: readonly NavigationItem[] = [
@@ -67,7 +63,6 @@ export const navigationByRole: Record<RoleId, readonly NavigationItem[]> = {
     cases,
     rulebook,
     { label: "Integrity Officers", href: "/super-admin/integrity-officers", icon: ShieldCheck },
-    reports,
   ],
   "board-admin": [
     { label: "Dashboard", href: "/board-admin/dashboard", icon: Gauge },
@@ -76,7 +71,6 @@ export const navigationByRole: Record<RoleId, readonly NavigationItem[]> = {
     tournaments,
     matches,
     performance,
-    reports,
   ],
   "performance-manager": [
     { label: "Dashboard", href: "/performance/dashboard", icon: Gauge },
@@ -84,12 +78,10 @@ export const navigationByRole: Record<RoleId, readonly NavigationItem[]> = {
     teams,
     matches,
     performance,
-    reports,
   ],
   "match-official": [
     { label: "Dashboard", href: "/match-official/dashboard", icon: Gauge },
     matches,
-    reports,
   ],
   "integrity-officer": managerIntegrityNavigation,
   player: [

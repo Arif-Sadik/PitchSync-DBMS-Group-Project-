@@ -6,7 +6,7 @@ PitchSync is a Bangladesh cricket administration, performance, competition, and 
 
 - A current Node.js LTS release and npm
 - The deployed V003 schema in `PITCHSYNC_OWNER`
-- Oracle 19c available at `localhost:1522/PITCHPDB`
+- Oracle 19c available at `127.0.0.1:1530/PITCHPDB`
 
 The separate Oracle XE service on port 1521 is not a PitchSync target and must remain untouched.
 

@@ -10,7 +10,7 @@ const projectRoot = process.cwd();
 const localEnvironmentPath = path.join(projectRoot, ".env.local");
 const credentialsPath = path.join(projectRoot, "DEMO_CREDENTIALS.txt");
 
-const defaultApprovedTarget = "localhost:1522/PITCHPDB";
+const defaultApprovedTarget = "127.0.0.1:1530/PITCHPDB";
 
 const accounts = [
   ["Super Administrator", "superadmin"],

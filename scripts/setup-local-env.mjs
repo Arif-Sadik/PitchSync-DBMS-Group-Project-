@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const oracleEnvPath = resolve(root, ".env.oracle-local");
 const nextEnvPath = resolve(root, ".env.local");
+const approvedConnectString = "127.0.0.1:1530/PITCHPDB";
 
 function parseEnv(text) {
   const values = new Map();
@@ -35,15 +36,21 @@ if (!oraclePassword) {
 
 if (existsSync(nextEnvPath)) {
   const existingValues = parseEnv(readFileSync(nextEnvPath, "utf8"));
-  const isComplete = ["ORACLE_USER", "ORACLE_PASSWORD", "ORACLE_CONNECT_STRING", "AUTH_SECRET"]
+  const isComplete = ["ORACLE_USER", "ORACLE_PASSWORD", "ORACLE_CONNECT_STRING", "PITCHSYNC_LOCAL_DB_TARGET", "AUTH_SECRET"]
     .every((name) => Boolean(existingValues.get(name)));
+  const usesApprovedTarget =
+    existingValues.get("ORACLE_CONNECT_STRING") === approvedConnectString &&
+    existingValues.get("PITCHSYNC_LOCAL_DB_TARGET") === approvedConnectString;
 
-  if (isComplete) {
+  if (isComplete && usesApprovedTarget) {
     console.log(".env.local already contains the required server-only variables.");
     process.exit(0);
   }
 
-  throw new Error(".env.local already exists but is incomplete; update it using .env.example without committing secrets.");
+  throw new Error(
+    `.env.local is incomplete or does not target ${approvedConnectString}; ` +
+      "update it using .env.example without committing secrets.",
+  );
 }
 
 const authSecret = randomBytes(48).toString("hex");
@@ -51,7 +58,8 @@ const contents = [
   "# Generated local server configuration. This file is Git-ignored.",
   "ORACLE_USER=PITCHSYNC_OWNER",
   `ORACLE_PASSWORD=${oraclePassword}`,
-  "ORACLE_CONNECT_STRING=localhost:1522/PITCHPDB",
+  `ORACLE_CONNECT_STRING=${approvedConnectString}`,
+  `PITCHSYNC_LOCAL_DB_TARGET=${approvedConnectString}`,
   `AUTH_SECRET=${authSecret}`,
   "",
 ].join("\n");

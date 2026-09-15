@@ -588,3 +588,11 @@ ORDER BY object_type, object_name;
 
 Result:
 The grants were applied only in PITCHPDB. The project-update-2 master script completed as PITCHSYNC_OWNER. PU2_FN_PLAYER_TOTAL_RUNS, PU2_V_PLAYER_CAREER_OVERVIEW, and PU2_PR_PLAYER_SUMMARY were created and verified VALID. The cursor and exception-handling demonstration blocks also completed successfully. No credentials or password values were logged.
+
+2026-09-15 - Local application database connection repair
+
+Goal:
+Diagnose the unavailable application database connection without contacting or changing the separate Oracle XE database on port 1521.
+
+Result:
+The configured `localhost:1522/PITCHPDB` connection reached a listener but failed with NJS-518 because PITCHPDB was not registered there. Oracle 19c listener inspection showed PITCHPDB READY on 127.0.0.1:1530. A read-only application-credential check then returned PITCHSYNC_OWNER / PITCHPDB and 33 user tables. The local application environment and active setup documentation were updated to use 127.0.0.1:1530/PITCHPDB. No database objects or data were changed, and no credentials were logged.

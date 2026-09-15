@@ -100,7 +100,7 @@ WHERE username = :username;
 
 Bind variables: `passwordHash` (bcrypt cost 12) and each fixed local V003 `username`.
 
-How it works: The setup script verifies the exact `localhost:1522/PITCHPDB` target, updates all eight existing seed accounts in one transaction, and never prints the password or hash.
+How it works: The setup script verifies the exact `127.0.0.1:1530/PITCHPDB` target, updates all eight existing seed accounts in one transaction, and never prints the password or hash.
 
 Expected result/change: Eight existing local accounts activated. All updates commit together; any mismatch or error rolls back.
 
