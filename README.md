@@ -108,11 +108,11 @@ PitchSync/
 ## 👨‍💻 Developed By
 
 **Md. Arif Sadik Molla**  
-**Nitun Kundu Swapnil**
-**Faisal Ahmed Saad**
-**Safatul Jannat Shupti**
+**Nitun Kundu Swapnil**  
+**Faisal Ahmed Saad**  
+**Safatul Jannat Shupti**  
 *CSE Level-3*  
-**Military Institute of Science and Technology (MIST)**
+**Military Institute of Science and Technology (MIST)**  
 
 ## License
 
